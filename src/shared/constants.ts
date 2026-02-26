@@ -67,7 +67,7 @@ export const BARRIER_HEIGHT = 15;
 export const RESPAWN_TIME = 5000; // ms
 
 // Round
-export const ROUND_DURATION = 90; // seconds
+export const ROUND_DURATION = 300; // seconds (5 minutes)
 export const LOBBY_MIN_PLAYERS = 2;
 export const LOBBY_MAX_PLAYERS = 20;
 export const COUNTDOWN_DURATION = 3; // seconds

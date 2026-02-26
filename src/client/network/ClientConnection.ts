@@ -5,6 +5,7 @@ export class ClientConnection {
   private _room: Room | null = null;
 
   onStateChange: ((state: any) => void) | null = null;
+  onPlayerCountChange: ((count: number) => void) | null = null;
   onWelcome: ((data: { name: string; team: string }) => void) | null = null;
   onRoundResults: ((data: any) => void) | null = null;
   onPunchRescued: (() => void) | null = null;
@@ -39,6 +40,17 @@ export class ClientConnection {
       this._room.onStateChange((state) => {
         this.onStateChange?.(state);
       });
+
+      // Reliable player count updates via schema callbacks
+      // (onStateChange can miss MapSchema patches on mobile)
+      if (this._room.state?.players) {
+        this._room.state.players.onAdd(() => {
+          this.onPlayerCountChange?.(this._room!.state.players.size);
+        });
+        this._room.state.players.onRemove(() => {
+          this.onPlayerCountChange?.(this._room!.state.players.size);
+        });
+      }
 
       this._room.onMessage('welcome', (data) => {
         this.onWelcome?.(data);

@@ -108,7 +108,7 @@ async function main() {
       if (myTeam === 'defender') {
         countdownRole.textContent = "PUNCH'S FRIEND";
         countdownRole.style.color = '#88bbff';
-        countdownObjective.textContent = 'Block enemies! Keep Punch safe for 90 seconds!';
+        countdownObjective.textContent = 'Block enemies! Keep Punch safe for 5 minutes!';
         countdownObjective.style.color = '#88bbff';
       } else {
         countdownRole.textContent = "PUNCH'S FOE";
@@ -156,8 +156,15 @@ async function main() {
     touch.setRole(data.team);
   };
 
+  connection.onPlayerCountChange = (count) => {
+    lobby.setPlayerCount(count);
+  };
+
   connection.onTeamCounts = (data) => {
     lobby.setTeamCounts(data.friends, data.foes);
+    // Also update total player count — more reliable than relying on
+    // onStateChange alone (mobile can miss MapSchema patches)
+    lobby.setPlayerCount(data.friends + data.foes);
   };
 
   connection.onPlayerEliminated = (data) => {
