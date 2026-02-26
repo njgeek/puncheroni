@@ -1,9 +1,8 @@
-import { Player, Projectile, Barrier, PunchVIP } from '../state/GameState';
-import { MapSchema, ArraySchema } from '@colyseus/schema';
+import { Player } from '../state/GameState';
+import { MapSchema } from '@colyseus/schema';
 import {
   ARENA_WIDTH, ARENA_HEIGHT, PLAYER_RADIUS, PUNCH_X, PUNCH_Y,
-  PUNCH_ZONE_RADIUS, ATTACKER_PROJECTILE_SPEED, ATTACKER_DASH_SPEED,
-  ATTACKER_DASH_DURATION, BARRIER_WIDTH, BARRIER_HEIGHT,
+  PUNCH_ZONE_RADIUS, DASH_SPEED, MAP_WALLS,
 } from '../../shared/constants';
 
 export class PhysicsSystem {
@@ -17,11 +16,29 @@ export class PhysicsSystem {
     players.forEach((player, id) => {
       if (!player.alive) return;
 
-      // If dashing, apply dash movement
+      // If dashing, apply dash movement with sub-stepping (prevents wall clipping)
       if (player.isDashing) {
         if (Date.now() < player.dashEndTime) {
-          player.x += player.dashDx * ATTACKER_DASH_SPEED * deltaSec * 60;
-          player.y += player.dashDy * ATTACKER_DASH_SPEED * deltaSec * 60;
+          const totalDx = player.dashDx * DASH_SPEED * deltaSec * 60;
+          const totalDy = player.dashDy * DASH_SPEED * deltaSec * 60;
+          const totalDist = Math.sqrt(totalDx * totalDx + totalDy * totalDy);
+
+          // Sub-step: move in increments of PLAYER_RADIUS to prevent clipping through walls
+          const steps = Math.max(1, Math.ceil(totalDist / PLAYER_RADIUS));
+          const stepDx = totalDx / steps;
+          const stepDy = totalDy / steps;
+
+          for (let s = 0; s < steps; s++) {
+            player.x += stepDx;
+            player.y += stepDy;
+
+            // Clamp + wall check after each sub-step
+            player.x = Math.max(PLAYER_RADIUS, Math.min(ARENA_WIDTH - PLAYER_RADIUS, player.x));
+            player.y = Math.max(PLAYER_RADIUS, Math.min(ARENA_HEIGHT - PLAYER_RADIUS, player.y));
+            for (const wall of MAP_WALLS) {
+              this.resolveCircleRect(player, wall.x, wall.y, wall.w, wall.h);
+            }
+          }
         } else {
           player.isDashing = false;
         }
@@ -42,8 +59,12 @@ export class PhysicsSystem {
       player.x = Math.max(PLAYER_RADIUS, Math.min(ARENA_WIDTH - PLAYER_RADIUS, player.x));
       player.y = Math.max(PLAYER_RADIUS, Math.min(ARENA_HEIGHT - PLAYER_RADIUS, player.y));
 
-      // Defenders can't enter Punch zone center (too close)
-      // Attackers collide with Punch zone
+      // Wall collision — push player out of walls
+      for (const wall of MAP_WALLS) {
+        this.resolveCircleRect(player, wall.x, wall.y, wall.w, wall.h);
+      }
+
+      // Defenders can't enter Punch zone center
       const dxP = player.x - PUNCH_X;
       const dyP = player.y - PUNCH_Y;
       const distP = Math.sqrt(dxP * dxP + dyP * dyP);
@@ -53,96 +74,80 @@ export class PhysicsSystem {
         player.y = PUNCH_Y + Math.sin(angle) * (PUNCH_ZONE_RADIUS - 20);
       }
     });
+
+    // Player-to-player collision (soft push — prevents stacking)
+    this.resolvePlayerCollisions(players);
   }
 
-  moveProjectiles(projectiles: ArraySchema<Projectile>, deltaMs: number): string[] {
-    const deltaSec = deltaMs / 1000;
-    const toRemove: string[] = [];
-
-    for (const proj of projectiles) {
-      proj.x += proj.dx * proj.speed * deltaSec * 60;
-      proj.y += proj.dy * proj.speed * deltaSec * 60;
-      proj.distanceTraveled += proj.speed * deltaSec * 60;
-
-      // Remove if out of range or arena
-      if (
-        proj.distanceTraveled > proj.maxRange ||
-        proj.x < 0 || proj.x > ARENA_WIDTH ||
-        proj.y < 0 || proj.y > ARENA_HEIGHT
-      ) {
-        toRemove.push(proj.id);
-      }
-    }
-
-    return toRemove;
-  }
-
-  checkPlayerBarrierCollision(players: MapSchema<Player>, barriers: ArraySchema<Barrier>) {
-    players.forEach((player) => {
-      if (!player.alive) return;
-      // Dashing attackers break through barriers (handled in combat)
-      if (player.isDashing) return;
-
-      for (const barrier of barriers) {
-        if (this.circleRectCollision(
-          player.x, player.y, PLAYER_RADIUS,
-          barrier.x, barrier.y, barrier.width, barrier.height, barrier.angle
-        )) {
-          // Push player out of barrier
-          const dx = player.x - barrier.x;
-          const dy = player.y - barrier.y;
-          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-          player.x += (dx / dist) * 3;
-          player.y += (dy / dist) * 3;
-        }
+  /** Soft push: overlapping players push each other apart */
+  private resolvePlayerCollisions(players: MapSchema<Player>) {
+    const ids: string[] = [];
+    const playerArr: Player[] = [];
+    players.forEach((p, id) => {
+      if (p.alive) {
+        ids.push(id);
+        playerArr.push(p);
       }
     });
-  }
 
-  checkProjectileBarrierCollision(
-    projectiles: ArraySchema<Projectile>,
-    barriers: ArraySchema<Barrier>
-  ): { projIds: string[]; barrierDamage: Map<string, number> } {
-    const projIds: string[] = [];
-    const barrierDamage = new Map<string, number>();
+    const minDist = PLAYER_RADIUS * 2;
+    for (let i = 0; i < playerArr.length; i++) {
+      for (let j = i + 1; j < playerArr.length; j++) {
+        const a = playerArr[i];
+        const b = playerArr[j];
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
 
-    for (const proj of projectiles) {
-      for (const barrier of barriers) {
-        if (this.circleRectCollision(
-          proj.x, proj.y, 5,
-          barrier.x, barrier.y, barrier.width, barrier.height, barrier.angle
-        )) {
-          projIds.push(proj.id);
-          const curr = barrierDamage.get(barrier.id) || 0;
-          barrierDamage.set(barrier.id, curr + proj.damage);
-          break;
+        if (dist < minDist && dist > 0) {
+          const overlap = (minDist - dist) / 2;
+          const nx = dx / dist;
+          const ny = dy / dist;
+          a.x -= nx * overlap;
+          a.y -= ny * overlap;
+          b.x += nx * overlap;
+          b.y += ny * overlap;
+
+          // Re-clamp both after push
+          a.x = Math.max(PLAYER_RADIUS, Math.min(ARENA_WIDTH - PLAYER_RADIUS, a.x));
+          a.y = Math.max(PLAYER_RADIUS, Math.min(ARENA_HEIGHT - PLAYER_RADIUS, a.y));
+          b.x = Math.max(PLAYER_RADIUS, Math.min(ARENA_WIDTH - PLAYER_RADIUS, b.x));
+          b.y = Math.max(PLAYER_RADIUS, Math.min(ARENA_HEIGHT - PLAYER_RADIUS, b.y));
         }
       }
     }
-
-    return { projIds, barrierDamage };
   }
 
-  circleRectCollision(
-    cx: number, cy: number, cr: number,
-    rx: number, ry: number, rw: number, rh: number, angle: number
-  ): boolean {
-    // Transform circle center to barrier's local space
-    const cos = Math.cos(-angle);
-    const sin = Math.sin(-angle);
-    const dx = cx - rx;
-    const dy = cy - ry;
-    const localX = dx * cos - dy * sin;
-    const localY = dx * sin + dy * cos;
+  /** Push a player (circle) out of a rectangle */
+  private resolveCircleRect(
+    player: Player,
+    rx: number, ry: number, rw: number, rh: number
+  ) {
+    // Find closest point on rect to circle center
+    const closestX = Math.max(rx, Math.min(rx + rw, player.x));
+    const closestY = Math.max(ry, Math.min(ry + rh, player.y));
 
-    const halfW = rw / 2;
-    const halfH = rh / 2;
-    const closestX = Math.max(-halfW, Math.min(halfW, localX));
-    const closestY = Math.max(-halfH, Math.min(halfH, localY));
+    const dx = player.x - closestX;
+    const dy = player.y - closestY;
+    const distSq = dx * dx + dy * dy;
 
-    const distX = localX - closestX;
-    const distY = localY - closestY;
-    return (distX * distX + distY * distY) < (cr * cr);
+    if (distSq < PLAYER_RADIUS * PLAYER_RADIUS && distSq > 0) {
+      const dist = Math.sqrt(distSq);
+      const overlap = PLAYER_RADIUS - dist;
+      player.x += (dx / dist) * overlap;
+      player.y += (dy / dist) * overlap;
+    } else if (distSq === 0) {
+      // Player center is exactly on the rect edge or inside — push out by nearest edge
+      const toLeft = player.x - rx;
+      const toRight = rx + rw - player.x;
+      const toTop = player.y - ry;
+      const toBottom = ry + rh - player.y;
+      const minDist = Math.min(toLeft, toRight, toTop, toBottom);
+      if (minDist === toLeft) player.x = rx - PLAYER_RADIUS;
+      else if (minDist === toRight) player.x = rx + rw + PLAYER_RADIUS;
+      else if (minDist === toTop) player.y = ry - PLAYER_RADIUS;
+      else player.y = ry + rh + PLAYER_RADIUS;
+    }
   }
 
   getDistance(x1: number, y1: number, x2: number, y2: number): number {

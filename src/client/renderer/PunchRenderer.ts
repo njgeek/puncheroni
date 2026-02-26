@@ -1,11 +1,9 @@
 import { Graphics, Container, Text, TextStyle } from 'pixi.js';
 import { PUNCH_X, PUNCH_Y } from '@shared/constants';
-import { toIso } from '../utils/iso';
 
 export class PunchRenderer {
   container = new Container();
   private bodyGroup = new Container();
-  private shadow!: Graphics;
   private hpBar!: Graphics;
   private hpBarBg!: Graphics;
   private knockbackRing!: Graphics;
@@ -13,19 +11,15 @@ export class PunchRenderer {
   private buddyCryContainer = new Container();
   private animTime = 0;
 
-  /** Game-space Y for depth sorting */
   gameY = PUNCH_Y;
 
-  // Buddy stays at center when Punch is taken
   buddyAtCenter = new Container();
   buddyGameY = PUNCH_Y;
 
   init() {
-    const isoPos = toIso(PUNCH_X, PUNCH_Y);
-    this.container.x = isoPos.x;
-    this.container.y = isoPos.y;
+    this.container.x = PUNCH_X;
+    this.container.y = PUNCH_Y;
 
-    this.drawShadow();
     this.drawPunchAndBuddy();
     this.drawHPBar();
     this.drawKnockbackRing();
@@ -33,84 +27,77 @@ export class PunchRenderer {
     this.drawBuddyAlone();
   }
 
-  private drawShadow() {
-    this.shadow = new Graphics();
-    this.shadow.ellipse(0, 5, 26, 10);
-    this.shadow.fill({ color: 0x000000, alpha: 0.25 });
-    this.container.addChild(this.shadow);
-  }
-
   private drawPunchAndBuddy() {
     const body = new Graphics();
 
-    // Body (iso-perspective: wider oval)
-    body.ellipse(0, 3, 20, 16);
+    // Shadow
+    body.ellipse(0, 4, 22, 10);
+    body.fill({ color: 0x000000, alpha: 0.25 });
+
+    // Body (round, cute)
+    body.ellipse(0, 0, 18, 16);
     body.fill(0xc4956a);
 
-    // Head (above body)
-    body.circle(0, -16, 16);
+    // Head
+    body.circle(0, -16, 14);
     body.fill(0xd4a574);
 
     // Ears
-    body.circle(-14, -20, 6);
+    body.circle(-12, -22, 5);
     body.fill(0xc49060);
-    body.circle(-14, -20, 3.5);
+    body.circle(-12, -22, 3);
     body.fill(0xeab8a0);
-    body.circle(14, -20, 6);
+    body.circle(12, -22, 5);
     body.fill(0xc49060);
-    body.circle(14, -20, 3.5);
+    body.circle(12, -22, 3);
     body.fill(0xeab8a0);
 
     // Face
-    body.circle(0, -12, 10);
+    body.circle(0, -14, 9);
     body.fill(0xecd0b8);
 
     // Eyes
-    body.circle(-4, -15, 3);
+    body.circle(-4, -16, 2.5);
     body.fill(0x111111);
-    body.circle(4, -15, 3);
+    body.circle(4, -16, 2.5);
     body.fill(0x111111);
-    body.circle(-3.5, -15.5, 1);
+    body.circle(-3.5, -16.5, 0.8);
     body.fill(0xffffff);
-    body.circle(4.5, -15.5, 1);
+    body.circle(4.5, -16.5, 0.8);
     body.fill(0xffffff);
 
     // Nose
-    body.circle(0, -10, 1.8);
+    body.circle(0, -12, 1.5);
     body.fill(0x8b6040);
 
     // Mouth
-    body.arc(0, -8, 3.5, 0.1, Math.PI - 0.1);
+    body.arc(0, -10, 3, 0.1, Math.PI - 0.1);
     body.stroke({ width: 1.5, color: 0x8b6040 });
 
     // Arms
-    body.moveTo(-16, -2);
-    body.quadraticCurveTo(-20, 12, -9, 17);
-    body.stroke({ width: 3.5, color: 0xc4956a });
-    body.moveTo(16, -2);
-    body.quadraticCurveTo(20, 12, 9, 17);
-    body.stroke({ width: 3.5, color: 0xc4956a });
+    body.moveTo(-14, -4);
+    body.quadraticCurveTo(-18, 8, -8, 14);
+    body.stroke({ width: 3, color: 0xc4956a });
+    body.moveTo(14, -4);
+    body.quadraticCurveTo(18, 8, 8, 14);
+    body.stroke({ width: 3, color: 0xc4956a });
 
     // Buddy (held)
     const buddy = new Graphics();
-    buddy.circle(0, 18, 9);
+    buddy.circle(0, 15, 8);
     buddy.fill(0xf5e6c8);
-    buddy.circle(-2.5, 16, 1.8);
+    buddy.circle(-2, 13, 1.5);
     buddy.fill(0x333333);
-    buddy.circle(2.5, 16, 1.8);
+    buddy.circle(2, 13, 1.5);
     buddy.fill(0x333333);
-    buddy.circle(0, 19, 1.3);
+    buddy.circle(0, 16, 1);
     buddy.fill(0xff9999);
-    buddy.circle(-6, 13, 3.5);
-    buddy.fill(0xf0d8b0);
-    buddy.circle(6, 13, 3.5);
-    buddy.fill(0xf0d8b0);
 
     this.bodyGroup.addChild(body);
     this.bodyGroup.addChild(buddy);
     this.container.addChild(this.bodyGroup);
 
-    // Label (screen-space)
+    // Label
     const label = new Text({
       text: 'PUNCH',
       style: new TextStyle({
@@ -121,40 +108,35 @@ export class PunchRenderer {
       }),
     });
     label.anchor.set(0.5);
-    label.y = -42;
+    label.y = -38;
     this.container.addChild(label);
   }
 
   private drawBuddyAlone() {
-    const isoPos = toIso(PUNCH_X, PUNCH_Y);
-    this.buddyAtCenter.x = isoPos.x;
-    this.buddyAtCenter.y = isoPos.y;
+    this.buddyAtCenter.x = PUNCH_X;
+    this.buddyAtCenter.y = PUNCH_Y;
     this.buddyAtCenter.visible = false;
 
-    // Shadow
     const shadow = new Graphics();
-    shadow.ellipse(0, 4, 16, 6);
+    shadow.ellipse(0, 4, 14, 6);
     shadow.fill({ color: 0x000000, alpha: 0.2 });
     this.buddyAtCenter.addChild(shadow);
 
     const buddy = new Graphics();
-    buddy.circle(0, 0, 14);
+    buddy.circle(0, 0, 12);
     buddy.fill(0xf5e6c8);
-    buddy.circle(-4, -3, 3);
+    buddy.circle(-3.5, -2, 2.5);
     buddy.fill(0x333333);
-    buddy.circle(4, -3, 3);
+    buddy.circle(3.5, -2, 2.5);
     buddy.fill(0x333333);
-    buddy.circle(-7, 0, 2);
+    // Tear drops
+    buddy.circle(-6, 1, 1.5);
     buddy.fill({ color: 0x6688ff, alpha: 0.7 });
-    buddy.circle(7, 0, 2);
+    buddy.circle(6, 1, 1.5);
     buddy.fill({ color: 0x6688ff, alpha: 0.7 });
-    buddy.arc(0, 5, 3, Math.PI + 0.3, -0.3);
+    // Sad mouth
+    buddy.arc(0, 4, 3, Math.PI + 0.3, -0.3);
     buddy.stroke({ width: 1.5, color: 0x8b6040 });
-    buddy.circle(-10, -8, 5);
-    buddy.fill(0xf0d8b0);
-    buddy.circle(10, -8, 5);
-    buddy.fill(0xf0d8b0);
-
     this.buddyAtCenter.addChild(buddy);
 
     const cryText = new Text({
@@ -167,15 +149,14 @@ export class PunchRenderer {
       }),
     });
     cryText.anchor.set(0.5);
-    cryText.y = -22;
+    cryText.y = -20;
     this.buddyAtCenter.addChild(cryText);
-
     this.buddyAtCenter.addChild(this.buddyCryContainer);
   }
 
   private drawHPBar() {
     this.hpBarBg = new Graphics();
-    this.hpBarBg.roundRect(-30, -52, 60, 8, 4);
+    this.hpBarBg.roundRect(-28, -48, 56, 7, 3);
     this.hpBarBg.fill(0x333333);
     this.container.addChild(this.hpBarBg);
 
@@ -200,7 +181,7 @@ export class PunchRenderer {
       }),
     });
     this.statusLabel.anchor.set(0.5);
-    this.statusLabel.y = 28;
+    this.statusLabel.y = 26;
     this.container.addChild(this.statusLabel);
   }
 
@@ -218,24 +199,22 @@ export class PunchRenderer {
     this.animTime += dt;
     this.gameY = punchY;
 
-    // Move to iso position
-    const isoPos = toIso(punchX, punchY);
-    this.container.x = isoPos.x;
-    this.container.y = isoPos.y;
+    this.container.x = punchX;
+    this.container.y = punchY;
     this.container.visible = true;
 
     // Buddy at center when Punch is away
     this.buddyAtCenter.visible = !isHome;
     if (!isHome) {
       const shiver = Math.sin(this.animTime * 15) * 2;
-      this.buddyAtCenter.children[1].x = shiver; // buddy gfx is child[1] (shadow is child[0])
+      this.buddyAtCenter.children[1].x = shiver;
 
       if (Math.random() < 0.08) {
         const tear = new Graphics();
         const side = Math.random() > 0.5 ? 1 : -1;
         tear.circle(0, 0, 2);
         tear.fill({ color: 0x6688ff, alpha: 0.8 });
-        tear.x = side * 7;
+        tear.x = side * 6;
         tear.y = 0;
         (tear as any)._vy = 0.5 + Math.random();
         (tear as any)._life = 1;
@@ -279,16 +258,16 @@ export class PunchRenderer {
 
     // HP bar
     const ratio = Math.max(0, hp / maxHp);
-    const barWidth = 56 * ratio;
+    const barWidth = 52 * ratio;
     const color = ratio > 0.5 ? 0x44cc44 : ratio > 0.25 ? 0xccaa22 : 0xcc3333;
     this.hpBar.clear();
-    this.hpBar.roundRect(-28, -51, barWidth, 6, 3);
+    this.hpBar.roundRect(-26, -47, barWidth, 5, 2);
     this.hpBar.fill(color);
 
-    // Knockback ring (iso ellipse)
+    // Knockback ring
     if (isKnockbackActive) {
       this.knockbackRing.clear();
-      this.knockbackRing.ellipse(0, 0, 150 * 1.4, 150 * 0.7);
+      this.knockbackRing.circle(0, 0, 150);
       this.knockbackRing.stroke({ width: 3, color: 0xffaa00, alpha: 0.6 });
       this.knockbackRing.alpha = 0.8;
     } else if (this.knockbackRing.alpha > 0) {

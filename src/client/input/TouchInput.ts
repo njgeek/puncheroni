@@ -3,7 +3,6 @@ export class TouchInput {
   private _dy = 0;
   private _attackPressed = false;
   private _dashPressed = false;
-  private _barrierPressed = false;
   private _attackAngle = 0;
   private _lastMoveAngle = 0;
 
@@ -95,18 +94,6 @@ export class TouchInput {
         padding-bottom: env(safe-area-inset-bottom, 0);
         padding-right: env(safe-area-inset-right, 0);
       ">
-        <button id="btn-barrier" style="
-          position: absolute; right: 78px; bottom: 100px;
-          width: 56px; height: 56px; border-radius: 50%;
-          background: rgba(74,158,255,0.25);
-          border: 2px solid rgba(74,158,255,0.5);
-          color: #fff; font-size: 10px; font-weight: 800;
-          letter-spacing: 0.5px; opacity: 0.7;
-          text-shadow: 0 1px 3px rgba(0,0,0,0.5);
-          -webkit-tap-highlight-color: transparent;
-          touch-action: manipulation;
-          transition: opacity 0.1s;
-        ">WALL</button>
         <button id="btn-dash" style="
           position: absolute; right: 92px; bottom: 12px;
           width: 62px; height: 62px; border-radius: 50%;
@@ -196,7 +183,6 @@ export class TouchInput {
     // Action buttons
     const btnAttack = this.container.querySelector('#btn-attack') as HTMLElement;
     const btnDash = this.container.querySelector('#btn-dash') as HTMLElement;
-    const btnBarrier = this.container.querySelector('#btn-barrier') as HTMLElement;
 
     const flashButton = (btn: HTMLElement) => {
       btn.style.opacity = '0.95';
@@ -221,14 +207,6 @@ export class TouchInput {
       if (this.isOnCooldown('dash')) return;
       this._dashPressed = true;
       flashButton(btnDash);
-      e.preventDefault();
-      e.stopPropagation();
-    }, { passive: false });
-
-    btnBarrier.addEventListener('touchstart', (e) => {
-      if (this.isOnCooldown('barrier')) return;
-      this._barrierPressed = true;
-      flashButton(btnBarrier);
       e.preventDefault();
       e.stopPropagation();
     }, { passive: false });
@@ -260,19 +238,12 @@ export class TouchInput {
     return v;
   }
 
-  consumeBarrier(): boolean {
-    const v = this._barrierPressed;
-    this._barrierPressed = false;
-    return v;
-  }
-
   setCooldown(buttonId: string, durationMs: number) {
     this.cooldowns.set(buttonId, Date.now() + durationMs);
 
     const btnMap: Record<string, string> = {
       attack: '#btn-attack',
       dash: '#btn-dash',
-      barrier: '#btn-barrier',
     };
 
     const btnEl = this.container.querySelector(btnMap[buttonId]) as HTMLElement | null;
@@ -296,25 +267,20 @@ export class TouchInput {
     if (!this.isMobile) return;
     const btnAttack = this.container.querySelector('#btn-attack') as HTMLElement | null;
     const btnDash = this.container.querySelector('#btn-dash') as HTMLElement | null;
-    const btnBarrier = this.container.querySelector('#btn-barrier') as HTMLElement | null;
 
     if (btnAttack) {
       if (team === 'attacker') {
-        btnAttack.textContent = 'SHOOT';
+        btnAttack.textContent = 'KICK';
+        btnAttack.style.background = 'rgba(255,74,74,0.3)';
+        btnAttack.style.borderColor = 'rgba(255,74,74,0.6)';
       } else {
-        btnAttack.textContent = 'HIT';
+        btnAttack.textContent = 'PUNCH';
+        btnAttack.style.background = 'rgba(74,158,255,0.3)';
+        btnAttack.style.borderColor = 'rgba(74,158,255,0.6)';
       }
     }
     if (btnDash) {
       btnDash.textContent = 'DASH';
-    }
-    if (btnBarrier) {
-      if (team === 'attacker') {
-        btnBarrier.style.display = 'none';
-      } else {
-        btnBarrier.style.display = '';
-        btnBarrier.textContent = 'WALL';
-      }
     }
   }
 }

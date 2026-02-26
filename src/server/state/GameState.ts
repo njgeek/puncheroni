@@ -1,52 +1,4 @@
-import { Schema, MapSchema, ArraySchema, defineTypes } from '@colyseus/schema';
-
-export class Projectile extends Schema {
-  id: string = '';
-  ownerId: string = '';
-  x: number = 0;
-  y: number = 0;
-  dx: number = 0;
-  dy: number = 0;
-  speed: number = 0;
-  damage: number = 0;
-  distanceTraveled: number = 0;
-  maxRange: number = 0;
-}
-defineTypes(Projectile, {
-  id: 'string',
-  ownerId: 'string',
-  x: 'number',
-  y: 'number',
-  dx: 'number',
-  dy: 'number',
-  speed: 'number',
-  damage: 'number',
-  distanceTraveled: 'number',
-  maxRange: 'number',
-});
-
-export class Barrier extends Schema {
-  id: string = '';
-  ownerId: string = '';
-  x: number = 0;
-  y: number = 0;
-  angle: number = 0;
-  hp: number = 30;
-  maxHp: number = 30;
-  width: number = 60;
-  height: number = 15;
-}
-defineTypes(Barrier, {
-  id: 'string',
-  ownerId: 'string',
-  x: 'number',
-  y: 'number',
-  angle: 'number',
-  hp: 'number',
-  maxHp: 'number',
-  width: 'number',
-  height: 'number',
-});
+import { Schema, MapSchema, defineTypes } from '@colyseus/schema';
 
 export class Player extends Schema {
   id: string = '';
@@ -65,11 +17,11 @@ export class Player extends Schema {
   dashEndTime: number = 0;
   dashDx: number = 0;
   dashDy: number = 0;
-  barrierCount: number = 0;
   damageDealt: number = 0;
   kills: number = 0;
   attackAngle: number = 0;
   isAttacking: boolean = false;
+  attackEndTime: number = 0;
   isCarryingPunch: boolean = false;
   isCarryingPunchHome: boolean = false; // defender carrying Punch back to center
   preferredTeam: string = ''; // player's team preference from lobby
@@ -92,11 +44,11 @@ defineTypes(Player, {
   dashEndTime: 'number',
   dashDx: 'number',
   dashDy: 'number',
-  barrierCount: 'number',
   damageDealt: 'number',
   kills: 'number',
   attackAngle: 'number',
   isAttacking: 'boolean',
+  attackEndTime: 'number',
   isCarryingPunch: 'boolean',
   isCarryingPunchHome: 'boolean',
   preferredTeam: 'string',
@@ -130,19 +82,15 @@ defineTypes(PunchVIP, {
 
 export class GameState extends Schema {
   players = new MapSchema<Player>();
-  projectiles = new ArraySchema<Projectile>();
-  barriers = new ArraySchema<Barrier>();
   punch = new PunchVIP();
   phase: string = 'lobby';
-  roundTimer: number = 90;
+  roundTimer: number = 300;
   countdown: number = 3;
   winningTeam: string = '';
   roundNumber: number = 0;
 }
 defineTypes(GameState, {
   players: { map: Player },
-  projectiles: [Projectile],
-  barriers: [Barrier],
   punch: PunchVIP,
   phase: 'string',
   roundTimer: 'number',

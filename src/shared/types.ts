@@ -16,7 +16,6 @@ export interface PlayerInput {
   attack: boolean;
   attackAngle: number; // radians
   dash: boolean;
-  placeBarrier: boolean;
   seq: number;
 }
 

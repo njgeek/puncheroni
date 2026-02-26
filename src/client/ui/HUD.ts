@@ -1,6 +1,5 @@
 import { Graphics, Container, Text, TextStyle } from 'pixi.js';
 import { ARENA_WIDTH, ARENA_HEIGHT, PUNCH_HP, EXTRACTION_ZONES } from '@shared/constants';
-import { toIso } from '../utils/iso';
 
 export class HUD {
   container = new Container();
@@ -63,7 +62,7 @@ export class HUD {
 
     // Timer (top right)
     this.timerText = new Text({
-      text: '1:30',
+      text: '5:00',
       style: new TextStyle({
         fontSize: Math.round(22 * s),
         fontWeight: 'bold',
@@ -89,7 +88,7 @@ export class HUD {
     this.teamCountText.y = 12;
     this.container.addChild(this.teamCountText);
 
-    // Phase text (below HP bar)
+    // Phase text
     this.phaseText = new Text({
       text: '',
       style: new TextStyle({
@@ -104,12 +103,11 @@ export class HUD {
     this.phaseText.y = 12 + barH + 14;
     this.container.addChild(this.phaseText);
 
-    // Diamond minimap
+    // Square minimap
     const mmSize = this.isMobile ? 70 : 100;
     this.minimapContainer = new Container();
     this.positionMinimap(mmSize);
 
-    // Diamond-shaped minimap background
     this.minimapBg = new Graphics();
     this.drawMinimapBg(mmSize);
     this.minimapContainer.addChild(this.minimapBg);
@@ -126,22 +124,9 @@ export class HUD {
 
   private drawMinimapBg(size: number) {
     this.minimapBg.clear();
-    // Diamond shape
-    const cx = size / 2;
-    const cy = size / 2;
-    const hw = size / 2;
-    const hh = size / 4; // diamond is wider than tall in iso
-    this.minimapBg.moveTo(cx, cy - hh);      // top
-    this.minimapBg.lineTo(cx + hw, cy);       // right
-    this.minimapBg.lineTo(cx, cy + hh);       // bottom
-    this.minimapBg.lineTo(cx - hw, cy);       // left
-    this.minimapBg.closePath();
+    this.minimapBg.rect(0, 0, size, size);
     this.minimapBg.fill({ color: 0x000000, alpha: 0.5 });
-    this.minimapBg.moveTo(cx, cy - hh);
-    this.minimapBg.lineTo(cx + hw, cy);
-    this.minimapBg.lineTo(cx, cy + hh);
-    this.minimapBg.lineTo(cx - hw, cy);
-    this.minimapBg.closePath();
+    this.minimapBg.rect(0, 0, size, size);
     this.minimapBg.stroke({ width: 1, color: 0x555555 });
   }
 
@@ -229,27 +214,26 @@ export class HUD {
     // Phase text
     if (phase === 'lobby') {
       this.phaseText.text = 'Waiting for players...';
-    } else if (phase === 'results') {
-      this.phaseText.text = '';
     } else {
       this.phaseText.text = '';
     }
 
-    // Diamond minimap
+    // Minimap (square, top-down)
     const mmSize = this.isMobile ? 70 : 100;
-    const mmScale = mmSize / ARENA_WIDTH;
 
     this.minimapDots.clear();
-    // Punch dot (iso-projected onto diamond minimap)
-    const punchMM = this.minimapIso(ARENA_WIDTH / 2, ARENA_HEIGHT / 2, mmSize);
-    this.minimapDots.circle(punchMM.x, punchMM.y, this.isMobile ? 2 : 3);
+    // Punch dot
+    const pxMM = (ARENA_WIDTH / 2 / ARENA_WIDTH) * mmSize;
+    const pyMM = (ARENA_HEIGHT / 2 / ARENA_HEIGHT) * mmSize;
+    this.minimapDots.circle(pxMM, pyMM, this.isMobile ? 2 : 3);
     this.minimapDots.fill(0xffcc00);
 
     for (const p of players) {
       if (!p.alive) continue;
-      const mm = this.minimapIso(p.x, p.y, mmSize);
+      const mx = (p.x / ARENA_WIDTH) * mmSize;
+      const my = (p.y / ARENA_HEIGHT) * mmSize;
       const c = p.team === 'defender' ? 0x4a9eff : 0xff4a4a;
-      this.minimapDots.circle(mm.x, mm.y, this.isMobile ? 1.5 : 2);
+      this.minimapDots.circle(mx, my, this.isMobile ? 1.5 : 2);
       this.minimapDots.fill(c);
     }
 
@@ -264,21 +248,6 @@ export class HUD {
         this.roleHint = null;
       }
     }
-  }
-
-  /** Convert game coords to minimap diamond position */
-  private minimapIso(gameX: number, gameY: number, mmSize: number): { x: number; y: number } {
-    const nx = gameX / ARENA_WIDTH;
-    const ny = gameY / ARENA_HEIGHT;
-    const cx = mmSize / 2;
-    const cy = mmSize / 2;
-    const hw = mmSize / 2;
-    const hh = mmSize / 4;
-    // Iso projection for minimap
-    return {
-      x: cx + (nx - ny) * hw,
-      y: cy + (nx + ny - 1) * hh,
-    };
   }
 
   updateObjectiveArrow(
@@ -298,7 +267,6 @@ export class HUD {
 
     if (localTeam === 'attacker') {
       if (isCarrying) {
-        // Arrow to nearest extraction zone
         let nearestDist = Infinity;
         for (const zone of EXTRACTION_ZONES) {
           const dx = zone.x - localX;
@@ -312,13 +280,11 @@ export class HUD {
         }
         arrowColor = 0xff4444;
       } else {
-        // Arrow to Punch
         targetX = punchX;
         targetY = punchY;
         arrowColor = 0xffcc00;
       }
     } else {
-      // Friend: arrow to Punch when he's away from home
       if (punchIsKidnapped) {
         targetX = punchX;
         targetY = punchY;
@@ -328,22 +294,17 @@ export class HUD {
 
     if (targetX === null || targetY === null) return;
 
-    // Convert to screen space
-    const localIso = toIso(localX, localY);
-    const targetIso = toIso(targetX, targetY);
-    const dx = targetIso.x - localIso.x;
-    const dy = targetIso.y - localIso.y;
+    const dx = targetX - localX;
+    const dy = targetY - localY;
     const dist = Math.sqrt(dx * dx + dy * dy);
 
-    if (dist < 80) return; // close enough, no arrow needed
+    if (dist < 80) return;
 
-    // Position at screen edge
     const angle = Math.atan2(dy, dx);
     const edgeDist = Math.min(this.screenWidth, this.screenHeight) * 0.4;
     const ax = this.screenWidth / 2 + Math.cos(angle) * edgeDist;
     const ay = this.screenHeight / 2 + Math.sin(angle) * edgeDist;
 
-    // Arrow triangle
     const arrowSize = 12;
     this.objectiveArrow.moveTo(ax + Math.cos(angle) * arrowSize, ay + Math.sin(angle) * arrowSize);
     this.objectiveArrow.lineTo(
@@ -364,8 +325,8 @@ export class HUD {
     }
 
     const hint = team === 'attacker'
-      ? 'Tap GRAB near Punch to kidnap!'
-      : 'Tap HIT near enemies to protect Punch!';
+      ? 'Kick enemies & grab Punch!'
+      : 'Punch enemies & protect Punch!';
     const color = team === 'attacker' ? '#ff8888' : '#88bbff';
 
     this.roleHint = new Text({

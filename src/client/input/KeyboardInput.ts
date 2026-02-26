@@ -2,7 +2,6 @@ export class KeyboardInput {
   private keys = new Set<string>();
   private _attackPressed = false;
   private _dashPressed = false;
-  private _barrierPressed = false;
   private _mouseX = 0;
   private _mouseY = 0;
   private canvas: HTMLCanvasElement;
@@ -15,9 +14,6 @@ export class KeyboardInput {
       if (e.key === ' ' || e.key === 'Shift') {
         this._dashPressed = true;
         e.preventDefault();
-      }
-      if (e.key.toLowerCase() === 'e') {
-        this._barrierPressed = true;
       }
     });
 
@@ -66,12 +62,6 @@ export class KeyboardInput {
   consumeDash(): boolean {
     const v = this._dashPressed;
     this._dashPressed = false;
-    return v;
-  }
-
-  consumeBarrier(): boolean {
-    const v = this._barrierPressed;
-    this._barrierPressed = false;
     return v;
   }
 }

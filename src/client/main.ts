@@ -16,28 +16,6 @@ function getScreenSize() {
   return { w: window.innerWidth, h: window.innerHeight };
 }
 
-/**
- * Rotate screen-space joystick direction to iso game direction.
- * "Up" on screen = northwest in game space.
- * We rotate by -pi/4 and scale Y by 2 to correct for iso vertical squish.
- */
-function screenDirToGameDir(sdx: number, sdy: number): { dx: number; dy: number } {
-  // Rotate by -45 degrees
-  const cos45 = Math.SQRT1_2;
-  const sin45 = Math.SQRT1_2;
-  const rx = sdx * cos45 + sdy * sin45;
-  const ry = -sdx * sin45 + sdy * cos45;
-  // Scale Y by 2 to correct for iso vertical squish
-  const gx = rx;
-  const gy = ry * 2;
-  // Normalize to maintain magnitude
-  const origMag = Math.sqrt(sdx * sdx + sdy * sdy);
-  const newMag = Math.sqrt(gx * gx + gy * gy);
-  if (newMag === 0 || origMag === 0) return { dx: 0, dy: 0 };
-  const scale = origMag / newMag;
-  return { dx: gx * scale, dy: gy * scale };
-}
-
 async function main() {
   const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
 
@@ -207,7 +185,6 @@ async function main() {
   };
 
   // Connect with auto-retry
-  const lobbyTeamEl = document.getElementById('lobby-team')!;
   const maxRetries = 5;
   let connected = false;
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -266,37 +243,28 @@ async function main() {
     const rawDy = useMobile ? touch.dy : keyboard.dy;
     const attackPressed = useMobile ? touch.consumeAttack() : keyboard.consumeAttack();
     const dashPressed = useMobile ? touch.consumeDash() : keyboard.consumeDash();
-    const barrierPressed = useMobile ? touch.consumeBarrier() : keyboard.consumeBarrier();
 
-    // Rotate joystick input to iso game direction
-    const { dx, dy } = screenDirToGameDir(rawDx, rawDy);
+    // Flat 2D — no rotation needed
+    const dx = rawDx;
+    const dy = rawDy;
 
     const attackAngle = useMobile
-      ? (() => {
-          // Rotate touch attack angle similarly
-          const rawAngle = touch.attackAngle;
-          const sdx2 = Math.cos(rawAngle);
-          const sdy2 = Math.sin(rawAngle);
-          const gd = screenDirToGameDir(sdx2, sdy2);
-          return Math.atan2(gd.dy, gd.dx);
-        })()
+      ? touch.attackAngle
       : gameScene.getAttackAngle(keyboard.mouseX, keyboard.mouseY);
 
     // Send input to server
-    if (dx !== 0 || dy !== 0 || attackPressed || dashPressed || barrierPressed) {
+    if (dx !== 0 || dy !== 0 || attackPressed || dashPressed) {
       connection.sendInput({
         dx,
         dy,
         attack: attackPressed,
         attackAngle,
         dash: dashPressed,
-        placeBarrier: barrierPressed,
         seq: ++inputSeq,
       });
 
       if (attackPressed) audio.playHit();
       if (dashPressed) audio.playDash();
-      if (barrierPressed) audio.playBarrierPlace();
     } else if (currentState?.phase === 'active') {
       connection.sendInput({
         dx: 0,
@@ -304,7 +272,6 @@ async function main() {
         attack: false,
         attackAngle,
         dash: false,
-        placeBarrier: false,
         seq: ++inputSeq,
       });
     }

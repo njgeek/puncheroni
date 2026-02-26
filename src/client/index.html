@@ -59,13 +59,17 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
+      justify-content: safe center;
       background: rgba(10, 14, 23, 0.95);
       z-index: 100;
       color: #fff;
       padding: 20px;
       padding-top: max(20px, env(safe-area-inset-top));
       padding-bottom: max(20px, env(safe-area-inset-bottom));
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      touch-action: pan-y;
+      overscroll-behavior: contain;
     }
     #lobby-overlay.hidden { display: none; }
     #lobby-overlay h1 {
@@ -302,13 +306,17 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
+      justify-content: safe center;
       background: rgba(10, 14, 23, 0.92);
       z-index: 95;
       color: #fff;
       padding: 24px;
       padding-top: max(24px, env(safe-area-inset-top));
       padding-bottom: max(24px, env(safe-area-inset-bottom));
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      touch-action: pan-y;
+      overscroll-behavior: contain;
     }
     #results-overlay.hidden { display: none; }
     #results-overlay h2 {
@@ -383,14 +391,14 @@
         <div class="card-badge" id="badge-defend">0</div>
         <div class="card-icon">🛡️</div>
         <div class="card-title">PUNCH'S FRIEND</div>
-        <div class="card-desc">Protect Punch! Melee attacks, barriers, and healing. Keep him safe for 90 seconds.</div>
+        <div class="card-desc">Protect Punch! Punch enemies, dash to chase. Keep him safe for 5 minutes!</div>
         <div class="chosen-badge">CHOSEN &#10003;</div>
       </div>
       <div class="team-card attack" id="card-attack">
         <div class="card-badge" id="badge-attack">0</div>
         <div class="card-icon">👊</div>
         <div class="card-title">PUNCH'S FOE</div>
-        <div class="card-desc">Kidnap Punch! Ranged shots, dash ability. Grab him and carry to an extraction zone!</div>
+        <div class="card-desc">Kidnap Punch! Kick enemies, dash to escape. Carry him to an airlock to win!</div>
         <div class="chosen-badge">CHOSEN &#10003;</div>
       </div>
     </div>
@@ -399,7 +407,7 @@
     <div class="assigned-message" id="lobby-assigned"></div>
     <div id="lobby-team" style="display:none;"></div>
     <div class="controls-hint">
-      <span class="desktop-only">WASD — Move &nbsp;|&nbsp; Click — Attack &nbsp;|&nbsp; E — Barrier &nbsp;|&nbsp; Space — Dash</span>
+      <span class="desktop-only">WASD — Move &nbsp;|&nbsp; Click — Attack &nbsp;|&nbsp; Space — Dash</span>
       <span class="mobile-only">Joystick to move &nbsp;|&nbsp; Tap buttons to act</span>
     </div>
   </div>

@@ -5,7 +5,7 @@ import {
   RUBBER_BAND_KIDNAPPED_DEFENDER_SPEED_BUFF,
   RUBBER_BAND_TIME_THRESHOLD,
   RUBBER_BAND_ATTACKER_DAMAGE_BUFF, TEAM_SWAP_RATIO,
-  PLAYER_RADIUS, ARENA_WIDTH, ARENA_HEIGHT,
+  SAFE_SPAWN_POINTS,
 } from '../../shared/constants';
 import { Team } from '../../shared/types';
 
@@ -90,21 +90,16 @@ export class BalanceSystem {
       player.speed = ATTACKER_SPEED;
     }
     player.alive = true;
-    player.barrierCount = 0;
     player.damageDealt = 0;
     player.kills = 0;
     player.isDashing = false;
     player.isCarryingPunch = false;
     player.isCarryingPunchHome = false;
 
-    // Spawn at edge
-    const side = Math.floor(Math.random() * 4);
-    switch (side) {
-      case 0: player.x = PLAYER_RADIUS + 20; player.y = Math.random() * ARENA_HEIGHT; break;
-      case 1: player.x = ARENA_WIDTH - PLAYER_RADIUS - 20; player.y = Math.random() * ARENA_HEIGHT; break;
-      case 2: player.x = Math.random() * ARENA_WIDTH; player.y = PLAYER_RADIUS + 20; break;
-      case 3: player.x = Math.random() * ARENA_WIDTH; player.y = ARENA_HEIGHT - PLAYER_RADIUS - 20; break;
-    }
+    // Spawn at a safe spawn point (away from walls)
+    const sp = SAFE_SPAWN_POINTS[Math.floor(Math.random() * SAFE_SPAWN_POINTS.length)];
+    player.x = sp.x;
+    player.y = sp.y;
   }
 
   applyRubberBanding(
