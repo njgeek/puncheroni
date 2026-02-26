@@ -39,6 +39,15 @@ export class GameRoom extends Room<{ state: GameState }> {
       const player = this.state.players.get(client.sessionId);
       if (player && (data.team === 'defender' || data.team === 'attacker')) {
         player.preferredTeam = data.team;
+
+        // During lobby phase, try to swap immediately
+        if (this.state.phase === 'lobby') {
+          if (data.team !== player.team) {
+            this.balance.trySwapTeam(player, this.state.players);
+          }
+          client.send('teamUpdate', { team: player.team });
+          this.broadcastTeamCounts();
+        }
       }
     });
 
@@ -65,6 +74,7 @@ export class GameRoom extends Room<{ state: GameState }> {
     }
 
     client.send('welcome', { name: player.name, team: player.team });
+    this.broadcastTeamCounts();
   }
 
   onLeave(client: Client) {
@@ -88,6 +98,7 @@ export class GameRoom extends Room<{ state: GameState }> {
     }
     this.state.players.delete(client.sessionId);
     this.playerInputs.delete(client.sessionId);
+    this.broadcastTeamCounts();
   }
 
   onDispose() {
@@ -192,7 +203,10 @@ export class GameRoom extends Room<{ state: GameState }> {
     this.physics.checkPlayerBarrierCollision(this.state.players, this.state.barriers);
 
     // 15. Eliminations & respawns
-    this.combat.processEliminations(this.state.players, this.state.punch, now);
+    const eliminations = this.combat.processEliminations(this.state.players, this.state.punch, now);
+    for (const elim of eliminations) {
+      this.broadcast('playerEliminated', elim);
+    }
     this.combat.processRespawns(this.state.players, now);
 
     // 16. Defender healing + Punch self-heal (only when home)
@@ -335,6 +349,16 @@ export class GameRoom extends Room<{ state: GameState }> {
         this.state.phase = 'lobby';
       }
     }, RESULTS_DURATION * 1000);
+  }
+
+  private broadcastTeamCounts() {
+    let friends = 0;
+    let foes = 0;
+    this.state.players.forEach((p: Player) => {
+      if (p.team === 'defender') friends++;
+      else foes++;
+    });
+    this.broadcast('teamCounts', { friends, foes });
   }
 
   private generateName(): string {

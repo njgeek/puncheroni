@@ -1,4 +1,5 @@
 import { Graphics, Container, Text, TextStyle } from 'pixi.js';
+import { toIso } from '../utils/iso';
 import {
   ARENA_WIDTH, ARENA_HEIGHT, PUNCH_X, PUNCH_Y, PUNCH_ZONE_RADIUS,
   EXTRACTION_ZONES, EXTRACTION_ZONE_RADIUS, RESCUE_RETURN_RANGE,
@@ -6,42 +7,82 @@ import {
 
 export class ArenaRenderer {
   container = new Container();
-  private extractionZones: Graphics[] = [];
+  private extractionZones: { g: Graphics; label: Text; gameX: number; gameY: number }[] = [];
   private homeZone!: Graphics;
   private animTime = 0;
 
   init() {
-    // Ground
+    // Diamond ground (iso-transformed arena corners)
     const bg = new Graphics();
-    bg.rect(0, 0, ARENA_WIDTH, ARENA_HEIGHT);
+    const tl = toIso(0, 0);
+    const tr = toIso(ARENA_WIDTH, 0);
+    const br = toIso(ARENA_WIDTH, ARENA_HEIGHT);
+    const bl = toIso(0, ARENA_HEIGHT);
+
+    bg.moveTo(tl.x, tl.y);
+    bg.lineTo(tr.x, tr.y);
+    bg.lineTo(br.x, br.y);
+    bg.lineTo(bl.x, bl.y);
+    bg.closePath();
     bg.fill(0x1a3a1a);
     this.container.addChild(bg);
 
-    // Grid lines
+    // Diamond grid lines
     const grid = new Graphics();
-    for (let x = 0; x <= ARENA_WIDTH; x += 60) {
-      grid.moveTo(x, 0);
-      grid.lineTo(x, ARENA_HEIGHT);
+    const step = 60;
+    for (let x = 0; x <= ARENA_WIDTH; x += step) {
+      const s = toIso(x, 0);
+      const e = toIso(x, ARENA_HEIGHT);
+      grid.moveTo(s.x, s.y);
+      grid.lineTo(e.x, e.y);
     }
-    for (let y = 0; y <= ARENA_HEIGHT; y += 60) {
-      grid.moveTo(0, y);
-      grid.lineTo(ARENA_WIDTH, y);
+    for (let y = 0; y <= ARENA_HEIGHT; y += step) {
+      const s = toIso(0, y);
+      const e = toIso(ARENA_WIDTH, y);
+      grid.moveTo(s.x, s.y);
+      grid.lineTo(e.x, e.y);
     }
-    grid.stroke({ width: 1, color: 0x224422, alpha: 0.3 });
+    grid.stroke({ width: 1, color: 0x224422, alpha: 0.25 });
     this.container.addChild(grid);
 
-    // Punch home zone (center)
+    // Arena border (darker edge with fence segments)
+    const border = new Graphics();
+    border.moveTo(tl.x, tl.y);
+    border.lineTo(tr.x, tr.y);
+    border.lineTo(br.x, br.y);
+    border.lineTo(bl.x, bl.y);
+    border.closePath();
+    border.stroke({ width: 4, color: 0x112211, alpha: 0.8 });
+    this.container.addChild(border);
+
+    // Home zone (center)
     this.homeZone = new Graphics();
     this.container.addChild(this.homeZone);
     this.drawHomeZone(false);
 
-    // Extraction zones (enemy goal areas at edges)
+    // Extraction zones at edges
     for (const zone of EXTRACTION_ZONES) {
       const g = new Graphics();
-      g.x = zone.x;
-      g.y = zone.y;
-      this.extractionZones.push(g);
+      const isoPos = toIso(zone.x, zone.y);
+      g.x = isoPos.x;
+      g.y = isoPos.y;
+
+      const label = new Text({
+        text: 'EXIT',
+        style: new TextStyle({
+          fontSize: 14,
+          fontWeight: 'bold',
+          fill: '#ff4444',
+          stroke: { color: '#000000', width: 3 },
+        }),
+      });
+      label.anchor.set(0.5);
+      label.x = isoPos.x;
+      label.y = isoPos.y - 35;
+
+      this.extractionZones.push({ g, label, gameX: zone.x, gameY: zone.y });
       this.container.addChild(g);
+      this.container.addChild(label);
     }
 
     this.drawBushes();
@@ -50,21 +91,23 @@ export class ArenaRenderer {
 
   private drawHomeZone(punchIsAway: boolean) {
     this.homeZone.clear();
+    const center = toIso(PUNCH_X, PUNCH_Y);
 
-    // Clearing
-    this.homeZone.circle(PUNCH_X, PUNCH_Y, PUNCH_ZONE_RADIUS + 40);
+    // Iso circle = ellipse (wider than tall)
+    const clearingR = PUNCH_ZONE_RADIUS + 40;
+    this.homeZone.ellipse(center.x, center.y, clearingR * 1.4, clearingR * 0.7);
     this.homeZone.fill({ color: 0x2a4a2a, alpha: 0.5 });
 
     if (punchIsAway) {
-      // Pulsing return zone when Punch needs to be brought back
-      this.homeZone.circle(PUNCH_X, PUNCH_Y, RESCUE_RETURN_RANGE);
+      const rr = RESCUE_RETURN_RANGE;
+      this.homeZone.ellipse(center.x, center.y, rr * 1.4, rr * 0.7);
       this.homeZone.stroke({ width: 3, color: 0x44aaff, alpha: 0.6 });
 
-      // "RETURN HERE" marker
-      this.homeZone.circle(PUNCH_X, PUNCH_Y, 10);
+      this.homeZone.ellipse(center.x, center.y, 14, 7);
       this.homeZone.fill({ color: 0x44aaff, alpha: 0.4 });
     } else {
-      this.homeZone.circle(PUNCH_X, PUNCH_Y, PUNCH_ZONE_RADIUS);
+      const r = PUNCH_ZONE_RADIUS;
+      this.homeZone.ellipse(center.x, center.y, r * 1.4, r * 0.7);
       this.homeZone.stroke({ width: 2, color: 0x66aa66, alpha: 0.4 });
     }
   }
@@ -72,27 +115,26 @@ export class ArenaRenderer {
   update(dt: number, punchIsKidnapped: boolean) {
     this.animTime += dt;
 
-    // Animate extraction zones
     const pulse = Math.sin(this.animTime * 3) * 0.3 + 0.7;
-    for (const g of this.extractionZones) {
-      g.clear();
+    for (const ez of this.extractionZones) {
+      ez.g.clear();
 
-      // Outer danger glow
-      g.circle(0, 0, EXTRACTION_ZONE_RADIUS);
-      g.fill({ color: 0xff2222, alpha: 0.08 * pulse });
-      g.circle(0, 0, EXTRACTION_ZONE_RADIUS);
-      g.stroke({ width: 2, color: 0xff4444, alpha: 0.4 * pulse });
-
-      // Inner skull/danger marker
-      g.circle(0, 0, 15);
-      g.stroke({ width: 2, color: 0xff6666, alpha: 0.5 });
+      // Iso ellipse for extraction zone
+      const r = EXTRACTION_ZONE_RADIUS;
+      ez.g.ellipse(0, 0, r * 1.4, r * 0.7);
+      ez.g.fill({ color: 0xff2222, alpha: 0.08 * pulse });
+      ez.g.ellipse(0, 0, r * 1.4, r * 0.7);
+      ez.g.stroke({ width: 2, color: 0xff4444, alpha: 0.4 * pulse });
 
       // X mark
-      g.moveTo(-8, -8);
-      g.lineTo(8, 8);
-      g.moveTo(8, -8);
-      g.lineTo(-8, 8);
-      g.stroke({ width: 2, color: 0xff4444, alpha: 0.6 });
+      ez.g.moveTo(-10, -5);
+      ez.g.lineTo(10, 5);
+      ez.g.moveTo(10, -5);
+      ez.g.lineTo(-10, 5);
+      ez.g.stroke({ width: 2, color: 0xff4444, alpha: 0.6 });
+
+      // Pulsing EXIT label
+      ez.label.alpha = 0.5 + 0.5 * pulse;
     }
 
     this.drawHomeZone(punchIsKidnapped);
@@ -111,8 +153,15 @@ export class ArenaRenderer {
       { x: 150, y: 600 }, { x: 1050, y: 600 },
     ];
     for (const p of positions) {
+      const iso = toIso(p.x, p.y);
       const size = 15 + Math.random() * 15;
-      bushes.circle(p.x, p.y, size);
+
+      // Shadow ellipse beneath
+      bushes.ellipse(iso.x, iso.y + 3, size * 1.2, size * 0.5);
+      bushes.fill({ color: 0x000000, alpha: 0.15 });
+
+      // Bush ellipse (wider in iso view)
+      bushes.ellipse(iso.x, iso.y - 4, size * 1.3, size * 0.7);
       bushes.fill({ color: 0x2d5a2d + Math.floor(Math.random() * 0x102010), alpha: 0.6 });
     }
     this.container.addChild(bushes);
@@ -120,19 +169,31 @@ export class ArenaRenderer {
 
   private drawTrees() {
     const treePositions = [
-      { x: 50, y: 50 }, { x: ARENA_WIDTH - 50, y: 50 },
-      { x: 50, y: ARENA_HEIGHT - 50 }, { x: ARENA_WIDTH - 50, y: ARENA_HEIGHT - 50 },
-      { x: 300, y: 50 }, { x: 900, y: 50 },
-      { x: 300, y: ARENA_HEIGHT - 50 }, { x: 900, y: ARENA_HEIGHT - 50 },
-      { x: 50, y: 300 }, { x: 50, y: 900 },
-      { x: ARENA_WIDTH - 50, y: 300 }, { x: ARENA_WIDTH - 50, y: 900 },
+      { x: 80, y: 80 }, { x: ARENA_WIDTH - 80, y: 80 },
+      { x: 80, y: ARENA_HEIGHT - 80 }, { x: ARENA_WIDTH - 80, y: ARENA_HEIGHT - 80 },
+      { x: 300, y: 60 }, { x: 900, y: 60 },
+      { x: 300, y: ARENA_HEIGHT - 60 }, { x: 900, y: ARENA_HEIGHT - 60 },
+      { x: 60, y: 300 }, { x: 60, y: 900 },
+      { x: ARENA_WIDTH - 60, y: 300 }, { x: ARENA_WIDTH - 60, y: 900 },
     ];
     for (const p of treePositions) {
+      const iso = toIso(p.x, p.y);
       const tree = new Graphics();
-      tree.rect(p.x - 5, p.y - 5, 10, 20);
+
+      // Shadow ellipse on ground
+      tree.ellipse(iso.x, iso.y + 5, 22, 10);
+      tree.fill({ color: 0x000000, alpha: 0.2 });
+
+      // Trunk (taller in iso view)
+      tree.rect(iso.x - 4, iso.y - 30, 8, 32);
       tree.fill(0x4a3520);
-      tree.circle(p.x, p.y - 10, 20);
+
+      // Canopy (iso-perspective triangle/ellipse)
+      tree.ellipse(iso.x, iso.y - 36, 22, 16);
       tree.fill({ color: 0x1d6b1d, alpha: 0.7 });
+      tree.ellipse(iso.x, iso.y - 46, 16, 12);
+      tree.fill({ color: 0x228822, alpha: 0.65 });
+
       this.container.addChild(tree);
     }
   }

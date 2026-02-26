@@ -11,7 +11,7 @@ export const TICK_MS = 1000 / SERVER_TICK_RATE;
 
 // Teams
 export const DEFENDER_RATIO = 0.55;
-export const TEAM_SWAP_RATIO = 0.3;
+export const TEAM_SWAP_RATIO = 0.15;
 
 // Defender stats
 export const DEFENDER_HP = 120;
@@ -68,7 +68,7 @@ export const RESPAWN_TIME = 5000; // ms
 
 // Round
 export const ROUND_DURATION = 90; // seconds
-export const LOBBY_MIN_PLAYERS = 1;
+export const LOBBY_MIN_PLAYERS = 2;
 export const LOBBY_MAX_PLAYERS = 20;
 export const COUNTDOWN_DURATION = 3; // seconds
 export const RESULTS_DURATION = 10; // seconds

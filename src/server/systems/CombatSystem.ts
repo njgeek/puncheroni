@@ -55,6 +55,7 @@ export class CombatSystem {
         if (angleDiff < Math.PI / 4) {
           target.hp -= DEFENDER_MELEE_DAMAGE;
           player.damageDealt += DEFENDER_MELEE_DAMAGE;
+          target.lastHitBy = player.id;
 
           // If this attacker was carrying Punch, they drop him!
           if (target.isCarryingPunch) {
@@ -260,6 +261,7 @@ export class CombatSystem {
         const dist = Math.sqrt(dx * dx + dy * dy);
         if (dist < PLAYER_RADIUS + 5) {
           player.hp -= proj.damage;
+          player.lastHitBy = proj.ownerId;
           players.forEach((p: Player) => {
             if (p.id === proj.ownerId) {
               p.damageDealt += proj.damage;
@@ -321,18 +323,42 @@ export class CombatSystem {
     return toRemove;
   }
 
-  processEliminations(players: MapSchema<Player>, punch: PunchVIP, now: number) {
+  processEliminations(
+    players: MapSchema<Player>,
+    punch: PunchVIP,
+    now: number,
+  ): Array<{ victimId: string; victimName: string; killerId: string; killerName: string }> {
+    const eliminations: Array<{ victimId: string; victimName: string; killerId: string; killerName: string }> = [];
+
     players.forEach((player: Player) => {
       if (player.alive && player.hp <= 0) {
         player.alive = false;
         player.respawnAt = now + RESPAWN_TIME;
 
+        // Credit kill to lastHitBy
+        if (player.lastHitBy) {
+          const killer = players.get(player.lastHitBy);
+          if (killer) {
+            killer.kills++;
+            eliminations.push({
+              victimId: player.id,
+              victimName: player.name,
+              killerId: killer.id,
+              killerName: killer.name,
+            });
+          }
+        }
+
         // Drop Punch if carrying
         if (player.isCarryingPunch || player.isCarryingPunchHome) {
           this.dropPunch(player, punch, now);
         }
+
+        player.lastHitBy = '';
       }
     });
+
+    return eliminations;
   }
 
   processRespawns(players: MapSchema<Player>, now: number) {

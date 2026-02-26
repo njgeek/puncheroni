@@ -8,6 +8,9 @@ export class ClientConnection {
   onWelcome: ((data: { name: string; team: string }) => void) | null = null;
   onRoundResults: ((data: any) => void) | null = null;
   onPunchRescued: (() => void) | null = null;
+  onTeamUpdate: ((data: { team: string }) => void) | null = null;
+  onPlayerEliminated: ((data: { victimId: string; victimName: string; killerId: string; killerName: string }) => void) | null = null;
+  onTeamCounts: ((data: { friends: number; foes: number }) => void) | null = null;
 
   constructor() {
     const protocol = window.location.protocol === 'https:' ? 'https' : 'http';
@@ -15,10 +18,8 @@ export class ClientConnection {
 
     let serverUrl: string;
     if (import.meta.env.DEV) {
-      // In dev, connect directly to Colyseus on port 3000
       serverUrl = `${protocol}://${host}:3000`;
     } else {
-      // In production, same host
       const port = window.location.port;
       serverUrl = `${protocol}://${host}${port ? ':' + port : ''}`;
     }
@@ -49,6 +50,18 @@ export class ClientConnection {
 
       this._room.onMessage('punchRescued', () => {
         this.onPunchRescued?.();
+      });
+
+      this._room.onMessage('teamUpdate', (data) => {
+        this.onTeamUpdate?.(data);
+      });
+
+      this._room.onMessage('playerEliminated', (data) => {
+        this.onPlayerEliminated?.(data);
+      });
+
+      this._room.onMessage('teamCounts', (data) => {
+        this.onTeamCounts?.(data);
       });
 
       return this._room;

@@ -25,10 +25,10 @@ export class Scoreboard {
     this.title.style.color = isDefWin ? '#4a9eff' : '#ff4a4a';
 
     this.stats.innerHTML = `
-      ${isDefWin ? 'Defenders protected Punch!' : 'Attackers kidnapped Punch!'}<br><br>
+      ${isDefWin ? "Punch's Friends protected him!" : "Punch's Foes kidnapped him!"}<br><br>
       <strong>MVP:</strong> ${data.mvpName} (${Math.round(data.mvpDamage)} dmg)<br>
       <strong>Time:</strong> ${Math.round(data.roundDuration)}s<br>
-      <strong>Kills:</strong> DEF ${data.defenderKills} — ATK ${data.attackerKills}
+      <strong>Kills:</strong> Friends ${data.defenderKills} — Foes ${data.attackerKills}
     `;
 
     this.overlay.classList.remove('hidden');

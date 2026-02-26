@@ -1,5 +1,6 @@
-import { Graphics, Container, Text, TextStyle, Ticker } from 'pixi.js';
-import { ARENA_WIDTH, ARENA_HEIGHT, PUNCH_HP } from '@shared/constants';
+import { Graphics, Container, Text, TextStyle } from 'pixi.js';
+import { ARENA_WIDTH, ARENA_HEIGHT, PUNCH_HP, EXTRACTION_ZONES } from '@shared/constants';
+import { toIso } from '../utils/iso';
 
 export class HUD {
   container = new Container();
@@ -12,6 +13,7 @@ export class HUD {
   private minimapContainer!: Container;
   private minimapBg!: Graphics;
   private minimapDots!: Graphics;
+  private objectiveArrow!: Graphics;
 
   private roleHint: Text | null = null;
   private roleHintTimer = 0;
@@ -24,7 +26,6 @@ export class HUD {
   }
 
   private get scale() {
-    // Scale HUD elements on small screens
     if (this.screenWidth < 400) return 0.7;
     if (this.screenWidth < 600) return 0.85;
     return 1;
@@ -103,27 +104,49 @@ export class HUD {
     this.phaseText.y = 12 + barH + 14;
     this.container.addChild(this.phaseText);
 
-    // Minimap (top-left below team count on mobile, bottom-right on desktop)
+    // Diamond minimap
     const mmSize = this.isMobile ? 70 : 100;
     this.minimapContainer = new Container();
     this.positionMinimap(mmSize);
 
+    // Diamond-shaped minimap background
     this.minimapBg = new Graphics();
-    this.minimapBg.roundRect(0, 0, mmSize, mmSize, 4);
-    this.minimapBg.fill({ color: 0x000000, alpha: 0.5 });
-    this.minimapBg.roundRect(0, 0, mmSize, mmSize, 4);
-    this.minimapBg.stroke({ width: 1, color: 0x555555 });
+    this.drawMinimapBg(mmSize);
     this.minimapContainer.addChild(this.minimapBg);
 
     this.minimapDots = new Graphics();
     this.minimapContainer.addChild(this.minimapDots);
 
     this.container.addChild(this.minimapContainer);
+
+    // Objective arrow
+    this.objectiveArrow = new Graphics();
+    this.container.addChild(this.objectiveArrow);
+  }
+
+  private drawMinimapBg(size: number) {
+    this.minimapBg.clear();
+    // Diamond shape
+    const cx = size / 2;
+    const cy = size / 2;
+    const hw = size / 2;
+    const hh = size / 4; // diamond is wider than tall in iso
+    this.minimapBg.moveTo(cx, cy - hh);      // top
+    this.minimapBg.lineTo(cx + hw, cy);       // right
+    this.minimapBg.lineTo(cx, cy + hh);       // bottom
+    this.minimapBg.lineTo(cx - hw, cy);       // left
+    this.minimapBg.closePath();
+    this.minimapBg.fill({ color: 0x000000, alpha: 0.5 });
+    this.minimapBg.moveTo(cx, cy - hh);
+    this.minimapBg.lineTo(cx + hw, cy);
+    this.minimapBg.lineTo(cx, cy + hh);
+    this.minimapBg.lineTo(cx - hw, cy);
+    this.minimapBg.closePath();
+    this.minimapBg.stroke({ width: 1, color: 0x555555 });
   }
 
   private positionMinimap(size: number) {
     if (this.isMobile) {
-      // Top-left, below team count, to avoid overlapping right-side action buttons
       this.minimapContainer.x = 10;
       this.minimapContainer.y = 34;
     } else {
@@ -152,6 +175,7 @@ export class HUD {
 
     const mmSize = this.isMobile ? 70 : 100;
     this.positionMinimap(mmSize);
+    this.drawMinimapBg(mmSize);
   }
 
   update(
@@ -169,7 +193,7 @@ export class HUD {
     const barW = Math.min(300, this.screenWidth * 0.6);
     const barH = 20 * s;
 
-    // Punch status bar
+    // Punch HP bar
     const ratio = Math.max(0, punchHp / punchMaxHp);
     const innerBarW = (barW - 4) * ratio;
     const color = ratio > 0.5 ? 0x44cc44 : ratio > 0.25 ? 0xccaa22 : 0xcc3333;
@@ -193,51 +217,45 @@ export class HUD {
     const min = Math.floor(secs / 60);
     const sec = secs % 60;
     this.timerText.text = `${min}:${sec.toString().padStart(2, '0')}`;
-    if (secs <= 30) {
-      this.timerText.style.fill = '#ff6644';
-    } else {
-      this.timerText.style.fill = '#ffffff';
-    }
+    this.timerText.style.fill = secs <= 30 ? '#ff6644' : '#ffffff';
 
-    // Team count — shorter on mobile
+    // Team count
     if (this.isMobile) {
-      this.teamCountText.text = `D:${defenders} A:${attackers}`;
+      this.teamCountText.text = `Friends:${defenders} Foes:${attackers}`;
     } else {
-      this.teamCountText.text = `Defenders: ${defenders}  |  Attackers: ${attackers}`;
+      this.teamCountText.text = `Friends: ${defenders}  |  Foes: ${attackers}`;
     }
 
-    // Phase
+    // Phase text
     if (phase === 'lobby') {
       this.phaseText.text = 'Waiting for players...';
     } else if (phase === 'results') {
       this.phaseText.text = '';
-    } else if (punchIsKidnapped) {
-      this.phaseText.text = '';
     } else {
       this.phaseText.text = '';
     }
 
-    // Minimap
+    // Diamond minimap
     const mmSize = this.isMobile ? 70 : 100;
     const mmScale = mmSize / ARENA_WIDTH;
 
     this.minimapDots.clear();
-    // Punch center
-    this.minimapDots.circle(ARENA_WIDTH / 2 * mmScale, ARENA_HEIGHT / 2 * mmScale, this.isMobile ? 2 : 3);
+    // Punch dot (iso-projected onto diamond minimap)
+    const punchMM = this.minimapIso(ARENA_WIDTH / 2, ARENA_HEIGHT / 2, mmSize);
+    this.minimapDots.circle(punchMM.x, punchMM.y, this.isMobile ? 2 : 3);
     this.minimapDots.fill(0xffcc00);
 
     for (const p of players) {
       if (!p.alive) continue;
-      const mx = p.x * mmScale;
-      const my = p.y * mmScale;
+      const mm = this.minimapIso(p.x, p.y, mmSize);
       const c = p.team === 'defender' ? 0x4a9eff : 0xff4a4a;
-      this.minimapDots.circle(mx, my, this.isMobile ? 1.5 : 2);
+      this.minimapDots.circle(mm.x, mm.y, this.isMobile ? 1.5 : 2);
       this.minimapDots.fill(c);
     }
 
-    // Fade role hint
+    // Role hint fade
     if (this.roleHint && this.roleHintTimer > 0) {
-      this.roleHintTimer -= 1 / 60; // approx per frame
+      this.roleHintTimer -= 1 / 60;
       if (this.roleHintTimer <= 1) {
         this.roleHint.alpha = Math.max(0, this.roleHintTimer);
       }
@@ -248,8 +266,99 @@ export class HUD {
     }
   }
 
+  /** Convert game coords to minimap diamond position */
+  private minimapIso(gameX: number, gameY: number, mmSize: number): { x: number; y: number } {
+    const nx = gameX / ARENA_WIDTH;
+    const ny = gameY / ARENA_HEIGHT;
+    const cx = mmSize / 2;
+    const cy = mmSize / 2;
+    const hw = mmSize / 2;
+    const hh = mmSize / 4;
+    // Iso projection for minimap
+    return {
+      x: cx + (nx - ny) * hw,
+      y: cy + (nx + ny - 1) * hh,
+    };
+  }
+
+  updateObjectiveArrow(
+    localTeam: string,
+    localX: number,
+    localY: number,
+    punchX: number,
+    punchY: number,
+    punchIsKidnapped: boolean,
+    isCarrying: boolean,
+  ) {
+    this.objectiveArrow.clear();
+
+    let targetX: number | null = null;
+    let targetY: number | null = null;
+    let arrowColor = 0xffcc00;
+
+    if (localTeam === 'attacker') {
+      if (isCarrying) {
+        // Arrow to nearest extraction zone
+        let nearestDist = Infinity;
+        for (const zone of EXTRACTION_ZONES) {
+          const dx = zone.x - localX;
+          const dy = zone.y - localY;
+          const dist = dx * dx + dy * dy;
+          if (dist < nearestDist) {
+            nearestDist = dist;
+            targetX = zone.x;
+            targetY = zone.y;
+          }
+        }
+        arrowColor = 0xff4444;
+      } else {
+        // Arrow to Punch
+        targetX = punchX;
+        targetY = punchY;
+        arrowColor = 0xffcc00;
+      }
+    } else {
+      // Friend: arrow to Punch when he's away from home
+      if (punchIsKidnapped) {
+        targetX = punchX;
+        targetY = punchY;
+        arrowColor = 0x44aaff;
+      }
+    }
+
+    if (targetX === null || targetY === null) return;
+
+    // Convert to screen space
+    const localIso = toIso(localX, localY);
+    const targetIso = toIso(targetX, targetY);
+    const dx = targetIso.x - localIso.x;
+    const dy = targetIso.y - localIso.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    if (dist < 80) return; // close enough, no arrow needed
+
+    // Position at screen edge
+    const angle = Math.atan2(dy, dx);
+    const edgeDist = Math.min(this.screenWidth, this.screenHeight) * 0.4;
+    const ax = this.screenWidth / 2 + Math.cos(angle) * edgeDist;
+    const ay = this.screenHeight / 2 + Math.sin(angle) * edgeDist;
+
+    // Arrow triangle
+    const arrowSize = 12;
+    this.objectiveArrow.moveTo(ax + Math.cos(angle) * arrowSize, ay + Math.sin(angle) * arrowSize);
+    this.objectiveArrow.lineTo(
+      ax + Math.cos(angle + 2.5) * arrowSize,
+      ay + Math.sin(angle + 2.5) * arrowSize,
+    );
+    this.objectiveArrow.lineTo(
+      ax + Math.cos(angle - 2.5) * arrowSize,
+      ay + Math.sin(angle - 2.5) * arrowSize,
+    );
+    this.objectiveArrow.closePath();
+    this.objectiveArrow.fill({ color: arrowColor, alpha: 0.8 });
+  }
+
   showRoleHint(team: string) {
-    // Remove existing hint
     if (this.roleHint) {
       this.container.removeChild(this.roleHint);
     }
@@ -271,7 +380,48 @@ export class HUD {
     this.roleHint.anchor.set(0.5);
     this.roleHint.x = this.screenWidth / 2;
     this.roleHint.y = this.screenHeight * 0.2;
-    this.roleHintTimer = 5; // 5 seconds
+    this.roleHintTimer = 5;
     this.container.addChild(this.roleHint);
   }
+}
+
+// DOM-based toast system
+export function showToast(text: string, color: string = '#ffffff') {
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+
+  const pill = document.createElement('div');
+  pill.className = 'toast-pill';
+  pill.textContent = text;
+  pill.style.borderLeft = `3px solid ${color}`;
+  container.appendChild(pill);
+
+  setTimeout(() => {
+    pill.remove();
+  }, 3000);
+}
+
+export function showRoleBanner(team: string) {
+  const banner = document.getElementById('role-banner');
+  if (!banner) return;
+  banner.className = team === 'defender' ? 'friend' : 'foe';
+  banner.textContent = team === 'defender' ? "PUNCH'S FRIEND" : "PUNCH'S FOE";
+  banner.style.display = 'block';
+}
+
+export function hideRoleBanner() {
+  const banner = document.getElementById('role-banner');
+  if (banner) banner.style.display = 'none';
+}
+
+export function showRespawnTimer(seconds: number) {
+  const overlay = document.getElementById('respawn-overlay')!;
+  const text = document.getElementById('respawn-text')!;
+  overlay.style.display = 'flex';
+  text.textContent = `Respawning in ${Math.ceil(seconds)}...`;
+}
+
+export function hideRespawnTimer() {
+  const overlay = document.getElementById('respawn-overlay')!;
+  overlay.style.display = 'none';
 }

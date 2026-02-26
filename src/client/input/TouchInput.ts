@@ -13,6 +13,7 @@ export class TouchInput {
 
   private container: HTMLElement;
   private isMobile: boolean;
+  private cooldowns = new Map<string, number>();
 
   constructor(container: HTMLElement) {
     this.container = container;
@@ -31,10 +32,43 @@ export class TouchInput {
     this.container.innerHTML = `
       <div id="joystick-zone" style="
         position: fixed; left: 0; bottom: 0;
-        width: 45%; height: 40%;
+        width: 50%; height: 50%;
         pointer-events: auto;
         touch-action: none;
       ">
+        <div id="joystick-idle" style="
+          position: absolute; left: 50px; bottom: 50px;
+          width: 100px; height: 100px;
+          pointer-events: none;
+        ">
+          <div style="
+            width: 100%; height: 100%;
+            border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.04);
+            display: flex; align-items: center; justify-content: center;
+            flex-direction: column; gap: 2px;
+          ">
+            <div style="
+              font-size: 18px; line-height: 1; opacity: 0.4; margin-top: -2px;
+              color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+            ">&#9650;</div>
+            <div style="display: flex; gap: 18px; opacity: 0.4; color: #fff;">
+              <span style="font-size: 18px;">&#9664;</span>
+              <span style="font-size: 18px;">&#9654;</span>
+            </div>
+            <div style="
+              color: rgba(255,255,255,0.4);
+              font-size: 10px; font-weight: 700;
+              letter-spacing: 1px;
+              text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+            ">MOVE</div>
+            <div style="
+              font-size: 18px; line-height: 1; opacity: 0.4; margin-bottom: -2px;
+              color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+            ">&#9660;</div>
+          </div>
+        </div>
         <div id="joystick-base" style="
           display: none; position: fixed;
           width: 130px; height: 130px;
@@ -62,35 +96,41 @@ export class TouchInput {
         padding-right: env(safe-area-inset-right, 0);
       ">
         <button id="btn-barrier" style="
-          position: absolute; right: 72px; bottom: 90px;
-          width: 50px; height: 50px; border-radius: 50%;
+          position: absolute; right: 78px; bottom: 100px;
+          width: 56px; height: 56px; border-radius: 50%;
           background: rgba(74,158,255,0.25);
           border: 2px solid rgba(74,158,255,0.5);
           color: #fff; font-size: 10px; font-weight: 800;
-          letter-spacing: 0.5px; opacity: 0.6;
+          letter-spacing: 0.5px; opacity: 0.7;
+          text-shadow: 0 1px 3px rgba(0,0,0,0.5);
           -webkit-tap-highlight-color: transparent;
           touch-action: manipulation;
+          transition: opacity 0.1s;
         ">WALL</button>
         <button id="btn-dash" style="
-          position: absolute; right: 82px; bottom: 10px;
-          width: 56px; height: 56px; border-radius: 50%;
+          position: absolute; right: 92px; bottom: 12px;
+          width: 62px; height: 62px; border-radius: 50%;
           background: rgba(255,165,0,0.25);
           border: 2px solid rgba(255,165,0,0.5);
           color: #fff; font-size: 11px; font-weight: 800;
-          letter-spacing: 0.5px; opacity: 0.6;
+          letter-spacing: 0.5px; opacity: 0.7;
+          text-shadow: 0 1px 3px rgba(0,0,0,0.5);
           -webkit-tap-highlight-color: transparent;
           touch-action: manipulation;
+          transition: opacity 0.1s;
         ">DASH</button>
         <button id="btn-attack" style="
           position: absolute; right: 0; bottom: 20px;
-          width: 76px; height: 76px; border-radius: 50%;
+          width: 82px; height: 82px; border-radius: 50%;
           background: rgba(255,74,74,0.3);
           border: 2.5px solid rgba(255,74,74,0.6);
           color: #fff; font-size: 14px; font-weight: 900;
-          letter-spacing: 1px; opacity: 0.6;
+          letter-spacing: 1px; opacity: 0.7;
           box-shadow: 0 0 15px rgba(255,74,74,0.15);
+          text-shadow: 0 1px 3px rgba(0,0,0,0.5);
           -webkit-tap-highlight-color: transparent;
           touch-action: manipulation;
+          transition: opacity 0.1s;
         ">ATK</button>
       </div>
     `;
@@ -98,14 +138,15 @@ export class TouchInput {
     const joystickZone = this.container.querySelector('#joystick-zone') as HTMLElement;
     const joystickBase = this.container.querySelector('#joystick-base') as HTMLElement;
     const joystickKnob = this.container.querySelector('#joystick-knob') as HTMLElement;
+    const joystickIdle = this.container.querySelector('#joystick-idle') as HTMLElement;
 
-    // Joystick — use position:fixed so clientX/clientY work directly
     joystickZone.addEventListener('touchstart', (e) => {
       if (this.joystickId !== null) return;
       const touch = e.changedTouches[0];
       this.joystickId = touch.identifier;
       this.joystickActive = true;
       this.joystickCenter = { x: touch.clientX, y: touch.clientY };
+      joystickIdle.style.display = 'none';
       joystickBase.style.display = 'block';
       joystickBase.style.left = touch.clientX + 'px';
       joystickBase.style.top = touch.clientY + 'px';
@@ -144,6 +185,7 @@ export class TouchInput {
           this._dy = 0;
           joystickBase.style.display = 'none';
           joystickKnob.style.transform = 'translate(-50%, -50%)';
+          joystickIdle.style.display = '';
         }
       }
     };
@@ -151,23 +193,24 @@ export class TouchInput {
     joystickZone.addEventListener('touchend', endJoystick, { passive: false });
     joystickZone.addEventListener('touchcancel', endJoystick, { passive: false });
 
-    // Action buttons — touchstart for zero-latency response
+    // Action buttons
     const btnAttack = this.container.querySelector('#btn-attack') as HTMLElement;
     const btnDash = this.container.querySelector('#btn-dash') as HTMLElement;
     const btnBarrier = this.container.querySelector('#btn-barrier') as HTMLElement;
 
     const flashButton = (btn: HTMLElement) => {
-      btn.style.opacity = '0.9';
+      btn.style.opacity = '0.95';
       btn.style.filter = 'brightness(1.5)';
       btn.style.transform = 'scale(0.92)';
       setTimeout(() => {
-        btn.style.opacity = '0.6';
+        btn.style.opacity = '0.7';
         btn.style.filter = '';
         btn.style.transform = '';
       }, 120);
     };
 
     btnAttack.addEventListener('touchstart', (e) => {
+      if (this.isOnCooldown('attack')) return;
       this._attackPressed = true;
       flashButton(btnAttack);
       e.preventDefault();
@@ -175,6 +218,7 @@ export class TouchInput {
     }, { passive: false });
 
     btnDash.addEventListener('touchstart', (e) => {
+      if (this.isOnCooldown('dash')) return;
       this._dashPressed = true;
       flashButton(btnDash);
       e.preventDefault();
@@ -182,6 +226,7 @@ export class TouchInput {
     }, { passive: false });
 
     btnBarrier.addEventListener('touchstart', (e) => {
+      if (this.isOnCooldown('barrier')) return;
       this._barrierPressed = true;
       flashButton(btnBarrier);
       e.preventDefault();
@@ -221,13 +266,47 @@ export class TouchInput {
     return v;
   }
 
+  setCooldown(buttonId: string, durationMs: number) {
+    this.cooldowns.set(buttonId, Date.now() + durationMs);
+
+    const btnMap: Record<string, string> = {
+      attack: '#btn-attack',
+      dash: '#btn-dash',
+      barrier: '#btn-barrier',
+    };
+
+    const btnEl = this.container.querySelector(btnMap[buttonId]) as HTMLElement | null;
+    if (btnEl) {
+      btnEl.style.opacity = '0.3';
+      btnEl.style.filter = 'grayscale(0.8)';
+      setTimeout(() => {
+        btnEl.style.opacity = '0.7';
+        btnEl.style.filter = '';
+      }, durationMs);
+    }
+  }
+
+  private isOnCooldown(buttonId: string): boolean {
+    const until = this.cooldowns.get(buttonId);
+    if (!until) return false;
+    return Date.now() < until;
+  }
+
   setRole(team: string) {
     if (!this.isMobile) return;
     const btnAttack = this.container.querySelector('#btn-attack') as HTMLElement | null;
+    const btnDash = this.container.querySelector('#btn-dash') as HTMLElement | null;
     const btnBarrier = this.container.querySelector('#btn-barrier') as HTMLElement | null;
 
     if (btnAttack) {
-      btnAttack.textContent = team === 'attacker' ? 'GRAB' : 'HIT';
+      if (team === 'attacker') {
+        btnAttack.textContent = 'SHOOT';
+      } else {
+        btnAttack.textContent = 'HIT';
+      }
+    }
+    if (btnDash) {
+      btnDash.textContent = 'DASH';
     }
     if (btnBarrier) {
       if (team === 'attacker') {

@@ -1,14 +1,20 @@
 import { Graphics, Container, Text, TextStyle } from 'pixi.js';
 import { PLAYER_RADIUS } from '@shared/constants';
+import { toIso } from '../utils/iso';
 
 interface PlayerSprite {
   container: Container;
   body: Graphics;
+  shadow: Graphics;
   hpBar: Graphics;
   hpBarBg: Graphics;
   nameText: Text;
   team: string;
-  attackIndicator: Graphics;
+  carrierIndicator: Graphics;
+  carrierLabel: Text;
+  deathMarker: Graphics;
+  /** game-space Y for depth sorting */
+  gameY: number;
 }
 
 export class PlayerRenderer {
@@ -24,7 +30,6 @@ export class PlayerRenderer {
     let sprite = this.sprites.get(id);
     if (sprite) {
       if (sprite.team !== team) {
-        // Team changed — recreate
         this.container.removeChild(sprite.container);
         this.sprites.delete(id);
         sprite = undefined;
@@ -33,38 +38,69 @@ export class PlayerRenderer {
 
     if (!sprite) {
       const c = new Container();
-      const body = new Graphics();
       const isDefender = team === 'defender';
       const baseColor = isDefender ? 0x4a9eff : 0xff4a4a;
       const darkColor = isDefender ? 0x2a6ecc : 0xcc2a2a;
 
-      // Body circle
-      body.circle(0, 0, PLAYER_RADIUS);
+      // Shadow ellipse on ground plane
+      const shadow = new Graphics();
+      shadow.ellipse(0, 0, PLAYER_RADIUS * 1.3, PLAYER_RADIUS * 0.5);
+      shadow.fill({ color: 0x000000, alpha: 0.25 });
+      c.addChild(shadow);
+
+      // Body: iso-perspective oval (wider than tall)
+      const body = new Graphics();
+      // Outer ring (team color)
+      body.ellipse(0, -8, PLAYER_RADIUS * 1.1, PLAYER_RADIUS * 0.8);
       body.fill(baseColor);
-      body.circle(0, 0, PLAYER_RADIUS - 3);
+      // Inner darker fill
+      body.ellipse(0, -8, PLAYER_RADIUS * 0.85, PLAYER_RADIUS * 0.6);
       body.fill(darkColor);
 
+      // Head (small circle above body, suggesting 3D from above)
+      body.circle(0, -20, 7);
+      body.fill(isDefender ? 0x6ab8ff : 0xff7a7a);
+
       // Direction indicator
-      body.moveTo(PLAYER_RADIUS - 2, 0);
-      body.lineTo(PLAYER_RADIUS + 6, 0);
+      body.moveTo(PLAYER_RADIUS - 2, -8);
+      body.lineTo(PLAYER_RADIUS + 8, -8);
       body.stroke({ width: 3, color: 0xffffff, alpha: 0.7 });
 
       // Local player marker
       if (isLocal) {
-        body.circle(0, 0, PLAYER_RADIUS + 4);
+        body.ellipse(0, -8, PLAYER_RADIUS * 1.3, PLAYER_RADIUS * 1.0);
         body.stroke({ width: 2, color: 0xffffff, alpha: 0.5 });
       }
 
       c.addChild(body);
 
-      // Attack indicator (melee arc or ranged aim)
-      const attackIndicator = new Graphics();
-      attackIndicator.alpha = 0;
-      c.addChild(attackIndicator);
+      // Carrier indicator (ring + label)
+      const carrierIndicator = new Graphics();
+      carrierIndicator.alpha = 0;
+      c.addChild(carrierIndicator);
+
+      const carrierLabel = new Text({
+        text: 'CARRIER',
+        style: new TextStyle({
+          fontSize: 9,
+          fontWeight: 'bold',
+          fill: '#ffffff',
+          stroke: { color: '#000000', width: 2 },
+        }),
+      });
+      carrierLabel.anchor.set(0.5);
+      carrierLabel.y = -36;
+      carrierLabel.visible = false;
+      c.addChild(carrierLabel);
+
+      // Death marker
+      const deathMarker = new Graphics();
+      deathMarker.visible = false;
+      c.addChild(deathMarker);
 
       // HP bar background
       const hpBarBg = new Graphics();
-      hpBarBg.roundRect(-PLAYER_RADIUS, -PLAYER_RADIUS - 10, PLAYER_RADIUS * 2, 5, 2);
+      hpBarBg.roundRect(-PLAYER_RADIUS, -32, PLAYER_RADIUS * 2, 5, 2);
       hpBarBg.fill(0x222222);
       c.addChild(hpBarBg);
 
@@ -72,7 +108,7 @@ export class PlayerRenderer {
       const hpBar = new Graphics();
       c.addChild(hpBar);
 
-      // Name — slightly bigger for readability on mobile
+      // Name text (screen-space, always readable)
       const nameText = new Text({
         text: name,
         style: new TextStyle({
@@ -83,10 +119,13 @@ export class PlayerRenderer {
         }),
       });
       nameText.anchor.set(0.5);
-      nameText.y = PLAYER_RADIUS + 10;
+      nameText.y = PLAYER_RADIUS * 0.5 + 6;
       c.addChild(nameText);
 
-      sprite = { container: c, body, hpBar, hpBarBg, nameText, team, attackIndicator };
+      sprite = {
+        container: c, body, shadow, hpBar, hpBarBg, nameText, team,
+        carrierIndicator, carrierLabel, deathMarker, gameY: 0,
+      };
       this.sprites.set(id, sprite);
       this.container.addChild(c);
     }
@@ -96,8 +135,8 @@ export class PlayerRenderer {
 
   update(
     id: string,
-    x: number,
-    y: number,
+    gameX: number,
+    gameY: number,
     hp: number,
     maxHp: number,
     alive: boolean,
@@ -109,9 +148,34 @@ export class PlayerRenderer {
     const sprite = this.sprites.get(id);
     if (!sprite) return;
 
-    sprite.container.x = x;
-    sprite.container.y = y;
-    sprite.container.alpha = alive ? 1 : 0.2;
+    // Store game-Y for depth sorting
+    sprite.gameY = gameY;
+
+    // Position at isometric coordinates
+    const iso = toIso(gameX, gameY);
+    sprite.container.x = iso.x;
+    sprite.container.y = iso.y;
+
+    // Alive/dead state
+    if (!alive) {
+      sprite.container.alpha = 0.35;
+      sprite.body.tint = 0x888888;
+      sprite.shadow.scale.set(1.2, 0.3);
+      sprite.deathMarker.visible = true;
+      sprite.deathMarker.clear();
+      // Small X above flattened body
+      sprite.deathMarker.moveTo(-5, -28);
+      sprite.deathMarker.lineTo(5, -18);
+      sprite.deathMarker.moveTo(5, -28);
+      sprite.deathMarker.lineTo(-5, -18);
+      sprite.deathMarker.stroke({ width: 2, color: 0xff4444, alpha: 0.8 });
+    } else {
+      sprite.container.alpha = 1;
+      sprite.body.tint = 0xffffff;
+      sprite.shadow.scale.set(1, 1);
+      sprite.deathMarker.visible = false;
+    }
+
     sprite.body.rotation = attackAngle;
 
     // Update HP bar
@@ -120,27 +184,38 @@ export class PlayerRenderer {
     const color = ratio > 0.5 ? 0x44cc44 : ratio > 0.25 ? 0xccaa22 : 0xcc3333;
     sprite.hpBar.clear();
     if (barWidth > 0) {
-      sprite.hpBar.roundRect(-PLAYER_RADIUS + 2, -PLAYER_RADIUS - 9, barWidth, 3, 1);
+      sprite.hpBar.roundRect(-PLAYER_RADIUS + 2, -31, barWidth, 3, 1);
       sprite.hpBar.fill(color);
     }
 
-    // Carrier indicator — glowing ring around player carrying Punch
+    // Carrier indicator
     if (isCarryingPunch || isCarryingPunchHome) {
       const ringColor = isCarryingPunch ? 0xff4444 : 0x44aaff;
-      sprite.attackIndicator.clear();
-      sprite.attackIndicator.circle(0, 0, PLAYER_RADIUS + 8);
-      sprite.attackIndicator.stroke({ width: 3, color: ringColor, alpha: 0.7 });
-      sprite.attackIndicator.alpha = 1;
+      sprite.carrierIndicator.clear();
+      sprite.carrierIndicator.ellipse(0, -8, PLAYER_RADIUS * 1.5, PLAYER_RADIUS * 1.1);
+      sprite.carrierIndicator.stroke({ width: 3, color: ringColor, alpha: 0.8 });
+      sprite.carrierIndicator.alpha = 1;
+      sprite.carrierLabel.visible = true;
+      sprite.carrierLabel.style.fill = isCarryingPunch ? '#ff6666' : '#66bbff';
     } else if (isAttacking) {
-      sprite.attackIndicator.clear();
+      sprite.carrierIndicator.clear();
       if (sprite.team === 'defender') {
-        sprite.attackIndicator.arc(0, 0, PLAYER_RADIUS + 15, attackAngle - 0.4, attackAngle + 0.4);
-        sprite.attackIndicator.stroke({ width: 3, color: 0xffffff, alpha: 0.6 });
+        sprite.carrierIndicator.arc(0, -8, PLAYER_RADIUS + 15, attackAngle - 0.4, attackAngle + 0.4);
+        sprite.carrierIndicator.stroke({ width: 3, color: 0xffffff, alpha: 0.6 });
       }
-      sprite.attackIndicator.alpha = 1;
-    } else if (sprite.attackIndicator.alpha > 0) {
-      sprite.attackIndicator.alpha -= 0.15;
+      sprite.carrierIndicator.alpha = 1;
+      sprite.carrierLabel.visible = false;
+    } else {
+      if (sprite.carrierIndicator.alpha > 0) {
+        sprite.carrierIndicator.alpha -= 0.15;
+      }
+      sprite.carrierLabel.visible = false;
     }
+  }
+
+  /** Get game-Y for a player sprite (used for depth sorting) */
+  getGameY(id: string): number {
+    return this.sprites.get(id)?.gameY ?? 0;
   }
 
   remove(id: string) {

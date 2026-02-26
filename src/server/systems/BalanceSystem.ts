@@ -139,6 +139,25 @@ export class BalanceSystem {
     return attackerDamageBuff;
   }
 
+  trySwapTeam(player: Player, players: MapSchema<Player>): boolean {
+    const targetTeam = player.team === 'defender' ? Team.Attacker : Team.Defender;
+    let defenders = 0;
+    let attackers = 0;
+    players.forEach((p: Player) => {
+      if (p.team === 'defender') defenders++;
+      else attackers++;
+    });
+    const total = defenders + attackers;
+    const maxDefenders = Math.ceil(total * 0.6);
+    const minDefenders = Math.floor(total * 0.4);
+
+    if (targetTeam === Team.Defender && defenders >= maxDefenders) return false;
+    if (targetTeam === Team.Attacker && defenders <= minDefenders) return false;
+
+    this.initializePlayer(player, targetTeam);
+    return true;
+  }
+
   swapTeams(players: MapSchema<Player>) {
     const playerIds: string[] = [];
     players.forEach((_: Player, id: string) => playerIds.push(id));
