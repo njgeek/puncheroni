@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <title>Puncheroni</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: #0a0e17;
+      font-family: -apple-system, 'Segoe UI', system-ui, sans-serif;
+      touch-action: none;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
+      /* Prevent iOS Safari overscroll bounce */
+      position: fixed;
+      overscroll-behavior: none;
+    }
+    #game-canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      height: 100dvh; /* dynamic viewport height for mobile */
+      touch-action: none;
+    }
+
+    /* ---- Lobby ---- */
+    #lobby-overlay {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(10, 14, 23, 0.95);
+      z-index: 100;
+      color: #fff;
+      padding: 20px;
+      padding-top: max(20px, env(safe-area-inset-top));
+      padding-bottom: max(20px, env(safe-area-inset-bottom));
+    }
+    #lobby-overlay.hidden { display: none; }
+    #lobby-overlay h1 {
+      font-size: clamp(32px, 8vw, 52px);
+      font-weight: 900;
+      background: linear-gradient(135deg, #ffb347, #ff6b6b);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 4px;
+      text-align: center;
+    }
+    #lobby-overlay .subtitle {
+      font-size: clamp(16px, 3.5vw, 22px);
+      color: #8892a4;
+      margin-bottom: 24px;
+      text-align: center;
+    }
+    #lobby-overlay .info-box {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px;
+      padding: 24px 28px;
+      text-align: center;
+      width: min(90vw, 420px);
+    }
+    #lobby-overlay .team-label {
+      font-size: clamp(12px, 2.5vw, 14px);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 6px;
+      color: #8892a4;
+    }
+    #lobby-overlay .team-name {
+      font-size: clamp(24px, 6vw, 32px);
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+    #lobby-overlay .team-name.defender { color: #4a9eff; }
+    #lobby-overlay .team-name.attacker { color: #ff4a4a; }
+    #lobby-overlay .player-count {
+      font-size: clamp(14px, 3vw, 18px);
+      color: #aab4c8;
+    }
+    #lobby-overlay .controls-hint {
+      margin-top: 20px;
+      font-size: clamp(12px, 2.5vw, 14px);
+      color: #778;
+      line-height: 1.9;
+      text-align: center;
+      max-width: min(90vw, 440px);
+    }
+    #lobby-overlay .controls-hint .desktop-only {
+      display: block;
+    }
+
+    /* ---- Countdown ---- */
+    #countdown-overlay {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 90;
+      pointer-events: none;
+    }
+    #countdown-overlay.hidden { display: none; }
+    #countdown-number {
+      font-size: clamp(80px, 20vw, 140px);
+      font-weight: 900;
+      color: #fff;
+      text-shadow: 0 0 40px rgba(255,180,70,0.8);
+      animation: pulse 1s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.2); opacity: 0.7; }
+    }
+
+    /* ---- Results ---- */
+    #results-overlay {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(10, 14, 23, 0.92);
+      z-index: 95;
+      color: #fff;
+      padding: 24px;
+      padding-top: max(24px, env(safe-area-inset-top));
+      padding-bottom: max(24px, env(safe-area-inset-bottom));
+    }
+    #results-overlay.hidden { display: none; }
+    #results-overlay h2 {
+      font-size: clamp(28px, 7vw, 46px);
+      font-weight: 900;
+      margin-bottom: 16px;
+      text-align: center;
+    }
+    #results-overlay .stats {
+      font-size: clamp(14px, 3vw, 18px);
+      color: #aab4c8;
+      line-height: 2;
+      text-align: center;
+      max-width: min(90vw, 440px);
+    }
+
+    /* ---- Mobile controls ---- */
+    #mobile-controls {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 50vh;
+      z-index: 50;
+      pointer-events: none;
+    }
+    #mobile-controls.hidden { display: none; }
+
+    /* Hide desktop-only hints on touch devices */
+    @media (hover: none) and (pointer: coarse) {
+      #lobby-overlay .controls-hint .desktop-only {
+        display: none;
+      }
+    }
+    /* Hide mobile hint on desktop */
+    @media (hover: hover) and (pointer: fine) {
+      #lobby-overlay .controls-hint .mobile-only {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game-canvas"></canvas>
+
+  <div id="lobby-overlay">
+    <h1>PUNCHERONI</h1>
+    <div class="subtitle">Save the Baby!</div>
+    <div class="info-box">
+      <div class="team-label">Your Team</div>
+      <div class="team-name defender" id="lobby-team">Connecting...</div>
+      <div class="player-count" id="lobby-players">Waiting for players...</div>
+    </div>
+    <div class="controls-hint">
+      <span class="desktop-only">WASD — Move &nbsp;|&nbsp; Click — Attack &nbsp;|&nbsp; E — Barrier &nbsp;|&nbsp; Space — Dash</span>
+      <span class="mobile-only">Joystick to move &nbsp;|&nbsp; ATK — Attack &nbsp;|&nbsp; DASH — Dash &nbsp;|&nbsp; WALL — Barrier</span>
+      <br><br>
+      <span style="color:#ff8888">Attackers: Grab Punch and carry him to a red zone!</span><br>
+      <span style="color:#88bbff">Defenders: Protect Punch! Hit the carrier to free him!</span>
+    </div>
+  </div>
+
+  <div id="countdown-overlay" class="hidden">
+    <div id="countdown-number">3</div>
+  </div>
+
+  <div id="results-overlay" class="hidden">
+    <h2 id="results-title">Defenders Win!</h2>
+    <div class="stats" id="results-stats"></div>
+  </div>
+
+  <div id="mobile-controls" class="hidden"></div>
+
+  <script type="module" src="./main.ts"></script>
+</body>
+</html>
