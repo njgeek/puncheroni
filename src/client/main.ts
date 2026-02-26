@@ -143,9 +143,14 @@ async function main() {
     return;
   }
 
-  // Ensure audio context starts on user interaction
-  canvas.addEventListener('click', () => audio.ensureResumed(), { once: true });
-  canvas.addEventListener('touchstart', () => audio.ensureResumed(), { once: true });
+  // Ensure audio context starts on ANY user interaction (lobby tap, canvas, etc.)
+  const resumeAudio = () => {
+    audio.ensureResumed();
+    document.removeEventListener('click', resumeAudio);
+    document.removeEventListener('touchstart', resumeAudio);
+  };
+  document.addEventListener('click', resumeAudio);
+  document.addEventListener('touchstart', resumeAudio);
 
   // Handle resize + orientation change (mobile)
   const handleResize = () => {

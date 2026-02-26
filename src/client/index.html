@@ -159,9 +159,11 @@
       bottom: 0;
       left: 0;
       right: 0;
-      height: 50vh;
+      height: 55%;
       z-index: 50;
       pointer-events: none;
+      padding-left: env(safe-area-inset-left, 0);
+      padding-right: env(safe-area-inset-right, 0);
     }
     #mobile-controls.hidden { display: none; }
 
@@ -176,6 +178,52 @@
       #lobby-overlay .controls-hint .mobile-only {
         display: none;
       }
+    }
+
+    /* Rotate prompt for portrait phones */
+    #rotate-prompt {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      background: rgba(10, 14, 23, 0.97);
+      color: #fff;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      gap: 16px;
+      padding: 24px;
+    }
+    #rotate-prompt .rotate-icon {
+      font-size: 60px;
+      animation: rotateHint 2s ease-in-out infinite;
+    }
+    #rotate-prompt .rotate-text {
+      font-size: 20px;
+      font-weight: 700;
+    }
+    #rotate-prompt .rotate-sub {
+      font-size: 14px;
+      color: #8892a4;
+    }
+    #rotate-prompt .dismiss-btn {
+      margin-top: 12px;
+      padding: 10px 28px;
+      border-radius: 24px;
+      border: 1px solid rgba(255,255,255,0.2);
+      background: rgba(255,255,255,0.08);
+      color: #aab4c8;
+      font-size: 14px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    @keyframes rotateHint {
+      0%, 100% { transform: rotate(0deg); }
+      50% { transform: rotate(90deg); }
+    }
+    @media (hover: none) and (pointer: coarse) and (orientation: portrait) {
+      #rotate-prompt:not(.dismissed) { display: flex; }
     }
   </style>
 </head>
@@ -209,6 +257,13 @@
   </div>
 
   <div id="mobile-controls" class="hidden"></div>
+
+  <div id="rotate-prompt">
+    <div class="rotate-icon">📱</div>
+    <div class="rotate-text">Rotate Your Phone</div>
+    <div class="rotate-sub">Puncheroni plays best in landscape mode!</div>
+    <button class="dismiss-btn" onclick="this.parentElement.classList.add('dismissed')">Play Anyway</button>
+  </div>
 
   <script type="module" src="./main.ts"></script>
 </body>

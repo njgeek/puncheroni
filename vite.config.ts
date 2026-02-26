@@ -14,5 +14,6 @@ export default defineConfig({
   },
   server: {
     port: 3001,
+    host: true, // expose on LAN so you can test on real phones
   },
 });
