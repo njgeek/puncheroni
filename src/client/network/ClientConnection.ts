@@ -61,4 +61,8 @@ export class ClientConnection {
   sendInput(input: any) {
     this._room?.send('input', input);
   }
+
+  sendTeamPreference(team: string) {
+    this._room?.send('teamPreference', { team });
+  }
 }

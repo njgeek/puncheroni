@@ -1,4 +1,4 @@
-import { Graphics, Container, Text, TextStyle } from 'pixi.js';
+import { Graphics, Container, Text, TextStyle, Ticker } from 'pixi.js';
 import { ARENA_WIDTH, ARENA_HEIGHT, PUNCH_HP } from '@shared/constants';
 
 export class HUD {
@@ -12,6 +12,9 @@ export class HUD {
   private minimapContainer!: Container;
   private minimapBg!: Graphics;
   private minimapDots!: Graphics;
+
+  private roleHint: Text | null = null;
+  private roleHintTimer = 0;
 
   private screenWidth = 800;
   private screenHeight = 600;
@@ -231,5 +234,44 @@ export class HUD {
       this.minimapDots.circle(mx, my, this.isMobile ? 1.5 : 2);
       this.minimapDots.fill(c);
     }
+
+    // Fade role hint
+    if (this.roleHint && this.roleHintTimer > 0) {
+      this.roleHintTimer -= 1 / 60; // approx per frame
+      if (this.roleHintTimer <= 1) {
+        this.roleHint.alpha = Math.max(0, this.roleHintTimer);
+      }
+      if (this.roleHintTimer <= 0) {
+        this.container.removeChild(this.roleHint);
+        this.roleHint = null;
+      }
+    }
+  }
+
+  showRoleHint(team: string) {
+    // Remove existing hint
+    if (this.roleHint) {
+      this.container.removeChild(this.roleHint);
+    }
+
+    const hint = team === 'attacker'
+      ? 'Tap GRAB near Punch to kidnap!'
+      : 'Tap HIT near enemies to protect Punch!';
+    const color = team === 'attacker' ? '#ff8888' : '#88bbff';
+
+    this.roleHint = new Text({
+      text: hint,
+      style: new TextStyle({
+        fontSize: Math.round(16 * this.scale),
+        fontWeight: 'bold',
+        fill: color,
+        stroke: { color: '#000000', width: 3 },
+      }),
+    });
+    this.roleHint.anchor.set(0.5);
+    this.roleHint.x = this.screenWidth / 2;
+    this.roleHint.y = this.screenHeight * 0.2;
+    this.roleHintTimer = 5; // 5 seconds
+    this.container.addChild(this.roleHint);
   }
 }

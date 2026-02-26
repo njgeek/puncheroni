@@ -35,6 +35,13 @@ export class GameRoom extends Room<{ state: GameState }> {
       this.playerInputs.set(client.sessionId, input);
     });
 
+    this.onMessage('teamPreference', (client, data: { team: string }) => {
+      const player = this.state.players.get(client.sessionId);
+      if (player && (data.team === 'defender' || data.team === 'attacker')) {
+        player.preferredTeam = data.team;
+      }
+    });
+
     this.lastTickTime = Date.now();
     this.tickInterval = setInterval(() => this.tick(), TICK_MS);
 
@@ -230,6 +237,15 @@ export class GameRoom extends Room<{ state: GameState }> {
   }
 
   private startCountdown() {
+    // Apply team preferences before round starts
+    this.balance.applyPreferences(this.state.players);
+
+    // Re-send welcome with final team assignment
+    this.state.players.forEach((player: Player, id: string) => {
+      const client = this.clients.find(c => c.sessionId === id);
+      client?.send('welcome', { name: player.name, team: player.team });
+    });
+
     this.state.phase = 'countdown';
     this.state.countdown = COUNTDOWN_DURATION;
 

@@ -27,70 +27,68 @@ export class TouchInput {
 
   private setupControls() {
     this.container.classList.remove('hidden');
-    this.container.style.pointerEvents = 'auto';
 
     this.container.innerHTML = `
       <div id="joystick-zone" style="
-        position: absolute; left: 0; bottom: 0;
-        width: 50%; height: 100%;
+        position: fixed; left: 0; bottom: 0;
+        width: 45%; height: 40%;
         pointer-events: auto;
         touch-action: none;
       ">
         <div id="joystick-base" style="
           display: none; position: fixed;
-          width: 150px; height: 150px;
+          width: 130px; height: 130px;
           border-radius: 50%;
-          border: 3px solid rgba(255,255,255,0.35);
-          background: rgba(255,255,255,0.08);
+          border: 3px solid rgba(255,255,255,0.25);
+          background: rgba(255,255,255,0.06);
           transform: translate(-50%, -50%);
-          box-shadow: 0 0 30px rgba(255,255,255,0.05);
           pointer-events: none;
         ">
           <div id="joystick-knob" style="
-            position: absolute; width: 64px; height: 64px;
+            position: absolute; width: 56px; height: 56px;
             border-radius: 50%;
-            background: radial-gradient(circle, rgba(255,255,255,0.7), rgba(255,255,255,0.3));
+            background: radial-gradient(circle, rgba(255,255,255,0.6), rgba(255,255,255,0.2));
             top: 50%; left: 50%;
             transform: translate(-50%, -50%);
-            box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
           "></div>
         </div>
       </div>
       <div id="action-buttons" style="
-        position: absolute; right: 20px; bottom: 20px;
+        position: fixed; right: 16px; bottom: 16px;
         pointer-events: auto;
         touch-action: none;
         padding-bottom: env(safe-area-inset-bottom, 0);
         padding-right: env(safe-area-inset-right, 0);
       ">
         <button id="btn-barrier" style="
-          position: absolute; right: 90px; bottom: 110px;
-          width: 60px; height: 60px; border-radius: 50%;
-          background: rgba(74,158,255,0.3);
-          border: 2.5px solid rgba(74,158,255,0.7);
-          color: #fff; font-size: 11px; font-weight: 800;
-          letter-spacing: 0.5px;
+          position: absolute; right: 72px; bottom: 90px;
+          width: 50px; height: 50px; border-radius: 50%;
+          background: rgba(74,158,255,0.25);
+          border: 2px solid rgba(74,158,255,0.5);
+          color: #fff; font-size: 10px; font-weight: 800;
+          letter-spacing: 0.5px; opacity: 0.6;
           -webkit-tap-highlight-color: transparent;
           touch-action: manipulation;
         ">WALL</button>
         <button id="btn-dash" style="
-          position: absolute; right: 100px; bottom: 20px;
-          width: 66px; height: 66px; border-radius: 50%;
-          background: rgba(255,165,0,0.3);
-          border: 2.5px solid rgba(255,165,0,0.7);
-          color: #fff; font-size: 12px; font-weight: 800;
-          letter-spacing: 0.5px;
+          position: absolute; right: 82px; bottom: 10px;
+          width: 56px; height: 56px; border-radius: 50%;
+          background: rgba(255,165,0,0.25);
+          border: 2px solid rgba(255,165,0,0.5);
+          color: #fff; font-size: 11px; font-weight: 800;
+          letter-spacing: 0.5px; opacity: 0.6;
           -webkit-tap-highlight-color: transparent;
           touch-action: manipulation;
         ">DASH</button>
         <button id="btn-attack" style="
-          position: absolute; right: 0; bottom: 30px;
-          width: 90px; height: 90px; border-radius: 50%;
-          background: rgba(255,74,74,0.35);
-          border: 3px solid rgba(255,74,74,0.8);
-          color: #fff; font-size: 15px; font-weight: 900;
-          letter-spacing: 1px;
-          box-shadow: 0 0 25px rgba(255,74,74,0.2);
+          position: absolute; right: 0; bottom: 20px;
+          width: 76px; height: 76px; border-radius: 50%;
+          background: rgba(255,74,74,0.3);
+          border: 2.5px solid rgba(255,74,74,0.6);
+          color: #fff; font-size: 14px; font-weight: 900;
+          letter-spacing: 1px; opacity: 0.6;
+          box-shadow: 0 0 15px rgba(255,74,74,0.15);
           -webkit-tap-highlight-color: transparent;
           touch-action: manipulation;
         ">ATK</button>
@@ -159,9 +157,11 @@ export class TouchInput {
     const btnBarrier = this.container.querySelector('#btn-barrier') as HTMLElement;
 
     const flashButton = (btn: HTMLElement) => {
-      btn.style.filter = 'brightness(2)';
+      btn.style.opacity = '0.9';
+      btn.style.filter = 'brightness(1.5)';
       btn.style.transform = 'scale(0.92)';
       setTimeout(() => {
+        btn.style.opacity = '0.6';
         btn.style.filter = '';
         btn.style.transform = '';
       }, 120);
@@ -219,5 +219,23 @@ export class TouchInput {
     const v = this._barrierPressed;
     this._barrierPressed = false;
     return v;
+  }
+
+  setRole(team: string) {
+    if (!this.isMobile) return;
+    const btnAttack = this.container.querySelector('#btn-attack') as HTMLElement | null;
+    const btnBarrier = this.container.querySelector('#btn-barrier') as HTMLElement | null;
+
+    if (btnAttack) {
+      btnAttack.textContent = team === 'attacker' ? 'GRAB' : 'HIT';
+    }
+    if (btnBarrier) {
+      if (team === 'attacker') {
+        btnBarrier.style.display = 'none';
+      } else {
+        btnBarrier.style.display = '';
+        btnBarrier.textContent = 'WALL';
+      }
+    }
   }
 }

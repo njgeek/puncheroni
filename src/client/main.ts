@@ -77,8 +77,16 @@ async function main() {
       results.hide();
       const countdownOverlay = document.getElementById('countdown-overlay')!;
       const countdownNumber = document.getElementById('countdown-number')!;
+      const countdownObjective = document.getElementById('countdown-objective')!;
       countdownOverlay.classList.remove('hidden');
       countdownNumber.textContent = String(Math.ceil(state.countdown));
+      if (myTeam === 'defender') {
+        countdownObjective.textContent = 'Block enemies! Keep Punch safe!';
+        countdownObjective.style.color = '#88bbff';
+      } else {
+        countdownObjective.textContent = 'Grab Punch! Carry him to a red zone!';
+        countdownObjective.style.color = '#ff8888';
+      }
       if (state.countdown <= 0) {
         countdownOverlay.classList.add('hidden');
       }
@@ -91,10 +99,15 @@ async function main() {
     }
   };
 
+  lobby.onTeamSelect = (team) => {
+    connection.sendTeamPreference(team);
+  };
+
   connection.onWelcome = (data) => {
     console.log(`Welcome, ${data.name}! Team: ${data.team}`);
     myTeam = data.team;
     lobby.setTeam(data.team);
+    touch.setRole(data.team);
     gameScene.setLocalPlayer(connection.sessionId);
   };
 
@@ -114,6 +127,7 @@ async function main() {
     if (phase === 'active') {
       audio.playRoundStart();
       wasPunchKidnapped = false;
+      gameScene.hud.showRoleHint(myTeam);
     }
   };
 

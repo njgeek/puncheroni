@@ -62,36 +62,71 @@
       margin-bottom: 24px;
       text-align: center;
     }
-    #lobby-overlay .info-box {
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 16px;
-      padding: 24px 28px;
+    #lobby-overlay .team-cards {
+      display: flex;
+      gap: 12px;
+      width: min(90vw, 440px);
+      margin-bottom: 16px;
+    }
+    #lobby-overlay .team-card {
+      flex: 1;
+      background: rgba(255,255,255,0.04);
+      border: 2px solid rgba(255,255,255,0.1);
+      border-radius: 14px;
+      padding: 16px 12px;
       text-align: center;
-      width: min(90vw, 420px);
+      cursor: pointer;
+      transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+      -webkit-tap-highlight-color: transparent;
     }
-    #lobby-overlay .team-label {
-      font-size: clamp(12px, 2.5vw, 14px);
-      text-transform: uppercase;
-      letter-spacing: 2px;
+    #lobby-overlay .team-card:active {
+      transform: scale(0.97);
+    }
+    #lobby-overlay .team-card.defend {
+      border-color: rgba(74,158,255,0.25);
+    }
+    #lobby-overlay .team-card.attack {
+      border-color: rgba(255,74,74,0.25);
+    }
+    #lobby-overlay .team-card.defend.selected {
+      border-color: #4a9eff;
+      background: rgba(74,158,255,0.12);
+      box-shadow: 0 0 20px rgba(74,158,255,0.3);
+    }
+    #lobby-overlay .team-card.attack.selected {
+      border-color: #ff4a4a;
+      background: rgba(255,74,74,0.12);
+      box-shadow: 0 0 20px rgba(255,74,74,0.3);
+    }
+    #lobby-overlay .team-card .card-icon {
+      font-size: clamp(28px, 7vw, 36px);
       margin-bottom: 6px;
+    }
+    #lobby-overlay .team-card .card-title {
+      font-size: clamp(14px, 3.5vw, 18px);
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+    #lobby-overlay .team-card.defend .card-title { color: #4a9eff; }
+    #lobby-overlay .team-card.attack .card-title { color: #ff4a4a; }
+    #lobby-overlay .team-card .card-desc {
+      font-size: clamp(10px, 2.2vw, 12px);
       color: #8892a4;
+      line-height: 1.4;
     }
-    #lobby-overlay .team-name {
-      font-size: clamp(24px, 6vw, 32px);
-      font-weight: 700;
-      margin-bottom: 12px;
-    }
-    #lobby-overlay .team-name.defender { color: #4a9eff; }
-    #lobby-overlay .team-name.attacker { color: #ff4a4a; }
     #lobby-overlay .player-count {
       font-size: clamp(14px, 3vw, 18px);
       color: #aab4c8;
+      margin-bottom: 4px;
+    }
+    #lobby-overlay .lobby-status {
+      font-size: clamp(12px, 2.5vw, 14px);
+      color: #667;
     }
     #lobby-overlay .controls-hint {
-      margin-top: 20px;
-      font-size: clamp(12px, 2.5vw, 14px);
-      color: #778;
+      margin-top: 16px;
+      font-size: clamp(11px, 2.2vw, 13px);
+      color: #556;
       line-height: 1.9;
       text-align: center;
       max-width: min(90vw, 440px);
@@ -105,6 +140,7 @@
       position: fixed;
       inset: 0;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
       z-index: 90;
@@ -156,14 +192,10 @@
     /* ---- Mobile controls ---- */
     #mobile-controls {
       position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      height: 55%;
+      inset: 0;
       z-index: 50;
       pointer-events: none;
-      padding-left: env(safe-area-inset-left, 0);
-      padding-right: env(safe-area-inset-right, 0);
+      background: transparent;
     }
     #mobile-controls.hidden { display: none; }
 
@@ -233,22 +265,36 @@
   <div id="lobby-overlay">
     <h1>PUNCHERONI</h1>
     <div class="subtitle">Save the Baby!</div>
-    <div class="info-box">
-      <div class="team-label">Your Team</div>
-      <div class="team-name defender" id="lobby-team">Connecting...</div>
-      <div class="player-count" id="lobby-players">Waiting for players...</div>
+    <div class="team-cards">
+      <div class="team-card defend" id="card-defend">
+        <div class="card-icon">🛡️</div>
+        <div class="card-title">PROTECT PUNCH</div>
+        <div class="card-desc">Join the Punch Army! Block enemies and keep Punch safe.</div>
+      </div>
+      <div class="team-card attack" id="card-attack">
+        <div class="card-icon">👊</div>
+        <div class="card-title">KIDNAP PUNCH</div>
+        <div class="card-desc">Snatch Punch and carry him to the extraction zone!</div>
+      </div>
     </div>
+    <div class="player-count" id="lobby-players">Waiting for players...</div>
+    <div class="lobby-status" id="lobby-status">Tap a team to join!</div>
     <div class="controls-hint">
       <span class="desktop-only">WASD — Move &nbsp;|&nbsp; Click — Attack &nbsp;|&nbsp; E — Barrier &nbsp;|&nbsp; Space — Dash</span>
-      <span class="mobile-only">Joystick to move &nbsp;|&nbsp; ATK — Attack &nbsp;|&nbsp; DASH — Dash &nbsp;|&nbsp; WALL — Barrier</span>
-      <br><br>
-      <span style="color:#ff8888">Attackers: Grab Punch and carry him to a red zone!</span><br>
-      <span style="color:#88bbff">Defenders: Protect Punch! Hit the carrier to free him!</span>
+      <span class="mobile-only">Joystick to move &nbsp;|&nbsp; Tap buttons to act</span>
     </div>
   </div>
 
   <div id="countdown-overlay" class="hidden">
     <div id="countdown-number">3</div>
+    <div id="countdown-objective" style="
+      font-size: clamp(14px, 3.5vw, 20px);
+      font-weight: 700;
+      color: #ccc;
+      text-shadow: 0 0 10px rgba(0,0,0,0.8);
+      margin-top: 8px;
+      text-align: center;
+    "></div>
   </div>
 
   <div id="results-overlay" class="hidden">

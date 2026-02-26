@@ -80,12 +80,12 @@ export class GameScene {
   }
 
   private updateCameraZoom() {
-    // On mobile (small screens), zoom out slightly so players can see more of the arena
+    // Controls now float over game, so full screen is available — less aggressive zoom
     const minDim = Math.min(this.screenWidth, this.screenHeight);
     if (minDim < 500) {
-      this.cameraZoom = 0.6;
-    } else if (minDim < 700) {
       this.cameraZoom = 0.75;
+    } else if (minDim < 700) {
+      this.cameraZoom = 0.85;
     } else {
       this.cameraZoom = 1;
     }

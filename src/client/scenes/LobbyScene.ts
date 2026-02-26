@@ -1,12 +1,27 @@
 export class LobbyScene {
   private overlay: HTMLElement;
-  private teamLabel: HTMLElement;
   private playerCount: HTMLElement;
+  private lobbyStatus: HTMLElement;
+  private cardDefend: HTMLElement;
+  private cardAttack: HTMLElement;
+
+  onTeamSelect: ((team: string) => void) | null = null;
 
   constructor() {
     this.overlay = document.getElementById('lobby-overlay')!;
-    this.teamLabel = document.getElementById('lobby-team')!;
     this.playerCount = document.getElementById('lobby-players')!;
+    this.lobbyStatus = document.getElementById('lobby-status')!;
+    this.cardDefend = document.getElementById('card-defend')!;
+    this.cardAttack = document.getElementById('card-attack')!;
+
+    this.cardDefend.addEventListener('click', () => {
+      this.selectCard('defender');
+      this.onTeamSelect?.('defender');
+    });
+    this.cardAttack.addEventListener('click', () => {
+      this.selectCard('attacker');
+      this.onTeamSelect?.('attacker');
+    });
   }
 
   show() {
@@ -17,9 +32,19 @@ export class LobbyScene {
     this.overlay.classList.add('hidden');
   }
 
+  private selectCard(team: string) {
+    this.cardDefend.classList.remove('selected');
+    this.cardAttack.classList.remove('selected');
+    if (team === 'defender') {
+      this.cardDefend.classList.add('selected');
+    } else {
+      this.cardAttack.classList.add('selected');
+    }
+    this.lobbyStatus.textContent = 'Waiting for players...';
+  }
+
   setTeam(team: string) {
-    this.teamLabel.textContent = team === 'defender' ? 'PUNCH ARMY' : 'ENEMY FORCE';
-    this.teamLabel.className = `team-name ${team}`;
+    this.selectCard(team);
   }
 
   setPlayerCount(count: number) {

@@ -72,6 +72,7 @@ export class Player extends Schema {
   isAttacking: boolean = false;
   isCarryingPunch: boolean = false;
   isCarryingPunchHome: boolean = false; // defender carrying Punch back to center
+  preferredTeam: string = ''; // player's team preference from lobby
 }
 defineTypes(Player, {
   id: 'string',
@@ -97,6 +98,7 @@ defineTypes(Player, {
   isAttacking: 'boolean',
   isCarryingPunch: 'boolean',
   isCarryingPunchHome: 'boolean',
+  preferredTeam: 'string',
 });
 
 export class PunchVIP extends Schema {
