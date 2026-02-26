@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a0e17"/>
+      <stop offset="100%" stop-color="#1a2030"/>
+    </linearGradient>
+    <linearGradient id="title" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffb347"/>
+      <stop offset="100%" stop-color="#ff6b6b"/>
+    </linearGradient>
+    <linearGradient id="arena" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1a3a1a"/>
+      <stop offset="100%" stop-color="#224422"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- Isometric diamond arena (background) -->
+  <polygon points="600,180 900,330 600,480 300,330" fill="url(#arena)" opacity="0.4"/>
+  <polygon points="600,180 900,330 600,480 300,330" fill="none" stroke="#224422" stroke-width="2" opacity="0.5"/>
+
+  <!-- Grid lines on diamond -->
+  <line x1="450" y1="255" x2="750" y2="405" stroke="#2a4a2a" stroke-width="1" opacity="0.3"/>
+  <line x1="450" y1="405" x2="750" y2="255" stroke="#2a4a2a" stroke-width="1" opacity="0.3"/>
+  <line x1="600" y1="180" x2="600" y2="480" stroke="#2a4a2a" stroke-width="1" opacity="0.3"/>
+  <line x1="300" y1="330" x2="900" y2="330" stroke="#2a4a2a" stroke-width="1" opacity="0.3"/>
+
+  <!-- Defender (blue) -->
+  <ellipse cx="480" cy="310" rx="18" ry="7" fill="#000" opacity="0.2"/>
+  <ellipse cx="480" cy="302" rx="16" ry="12" fill="#4a9eff"/>
+  <ellipse cx="480" cy="302" rx="12" ry="9" fill="#2a6ecc"/>
+  <circle cx="480" cy="288" r="7" fill="#6ab8ff"/>
+
+  <!-- Attacker (red) -->
+  <ellipse cx="700" cy="350" rx="18" ry="7" fill="#000" opacity="0.2"/>
+  <ellipse cx="700" cy="342" rx="16" ry="12" fill="#ff4a4a"/>
+  <ellipse cx="700" cy="342" rx="12" ry="9" fill="#cc2a2a"/>
+  <circle cx="700" cy="328" r="7" fill="#ff7a7a"/>
+
+  <!-- Punch character (center) -->
+  <ellipse cx="600" cy="335" rx="22" ry="9" fill="#000" opacity="0.2"/>
+  <ellipse cx="600" cy="327" rx="20" ry="16" fill="#c4956a"/>
+  <circle cx="600" cy="308" r="17" fill="#d4a574"/>
+  <circle cx="600" cy="312" r="11" fill="#ecd0b8"/>
+  <circle cx="596" cy="308" r="3.5" fill="#111"/>
+  <circle cx="604" cy="308" r="3.5" fill="#111"/>
+  <circle cx="597" cy="307" r="1.2" fill="#fff"/>
+  <circle cx="605" cy="307" r="1.2" fill="#fff"/>
+  <circle cx="600" cy="315" r="2" fill="#8b6040"/>
+  <circle cx="587" cy="303" r="6" fill="#c49060"/>
+  <circle cx="613" cy="303" r="6" fill="#c49060"/>
+
+  <!-- PUNCH label -->
+  <text x="600" y="280" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" font-weight="bold" fill="#ffcc00" stroke="#000" stroke-width="2" paint-order="stroke">PUNCH</text>
+
+  <!-- Extraction zone indicators -->
+  <ellipse cx="350" cy="330" rx="20" ry="10" fill="none" stroke="#ff4444" stroke-width="2" opacity="0.5"/>
+  <text x="350" y="314" text-anchor="middle" font-family="system-ui, sans-serif" font-size="10" font-weight="bold" fill="#ff4444" opacity="0.6">EXIT</text>
+  <ellipse cx="850" cy="330" rx="20" ry="10" fill="none" stroke="#ff4444" stroke-width="2" opacity="0.5"/>
+  <text x="850" y="314" text-anchor="middle" font-family="system-ui, sans-serif" font-size="10" font-weight="bold" fill="#ff4444" opacity="0.6">EXIT</text>
+
+  <!-- Title -->
+  <text x="600" y="100" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="72" font-weight="900" fill="url(#title)">PUNCHERONI</text>
+
+  <!-- Subtitle -->
+  <text x="600" y="140" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="24" fill="#8892a4">Save the Baby! — Multiplayer Arena Game</text>
+
+  <!-- Team labels -->
+  <text x="380" y="560" text-anchor="middle" font-family="system-ui, sans-serif" font-size="20" font-weight="800" fill="#4a9eff">PUNCH'S FRIENDS</text>
+  <text x="380" y="585" text-anchor="middle" font-family="system-ui, sans-serif" font-size="14" fill="#6688aa">Protect &amp; Defend</text>
+
+  <text x="820" y="560" text-anchor="middle" font-family="system-ui, sans-serif" font-size="20" font-weight="800" fill="#ff4a4a">PUNCH'S FOES</text>
+  <text x="820" y="585" text-anchor="middle" font-family="system-ui, sans-serif" font-size="14" fill="#aa6666">Kidnap &amp; Extract</text>
+
+  <!-- VS -->
+  <text x="600" y="575" text-anchor="middle" font-family="system-ui, sans-serif" font-size="28" font-weight="900" fill="#555">VS</text>
+</svg>

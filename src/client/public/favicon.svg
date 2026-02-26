@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffb347"/>
+      <stop offset="100%" stop-color="#ff6b6b"/>
+    </linearGradient>
+  </defs>
+  <!-- Background circle -->
+  <circle cx="64" cy="64" r="60" fill="url(#bg)"/>
+  <!-- Punch body -->
+  <ellipse cx="64" cy="72" rx="26" ry="22" fill="#c4956a"/>
+  <!-- Head -->
+  <circle cx="64" cy="42" r="22" fill="#d4a574"/>
+  <!-- Face -->
+  <circle cx="64" cy="46" r="15" fill="#ecd0b8"/>
+  <!-- Eyes -->
+  <circle cx="57" cy="42" r="4" fill="#111"/>
+  <circle cx="71" cy="42" r="4" fill="#111"/>
+  <circle cx="58.5" cy="41" r="1.5" fill="#fff"/>
+  <circle cx="72.5" cy="41" r="1.5" fill="#fff"/>
+  <!-- Nose -->
+  <circle cx="64" cy="49" r="2.5" fill="#8b6040"/>
+  <!-- Mouth (smile) -->
+  <path d="M59 53 Q64 58 69 53" fill="none" stroke="#8b6040" stroke-width="2" stroke-linecap="round"/>
+  <!-- Ears -->
+  <circle cx="44" cy="36" r="8" fill="#c49060"/>
+  <circle cx="44" cy="36" r="5" fill="#eab8a0"/>
+  <circle cx="84" cy="36" r="8" fill="#c49060"/>
+  <circle cx="84" cy="36" r="5" fill="#eab8a0"/>
+  <!-- Buddy (held) -->
+  <circle cx="64" cy="90" r="12" fill="#f5e6c8"/>
+  <circle cx="60" cy="87" r="2.5" fill="#333"/>
+  <circle cx="68" cy="87" r="2.5" fill="#333"/>
+  <circle cx="64" cy="93" r="2" fill="#ff9999"/>
+  <!-- Buddy ears -->
+  <circle cx="54" cy="82" r="5" fill="#f0d8b0"/>
+  <circle cx="74" cy="82" r="5" fill="#f0d8b0"/>
+</svg>
