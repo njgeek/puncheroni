@@ -17,8 +17,8 @@
   "license": "ISC",
   "dependencies": {
     "@colyseus/core": "^0.17.37",
+    "@colyseus/sdk": "^0.17.34",
     "colyseus": "^0.17.8",
-    "colyseus.js": "^0.16.22",
     "cors": "^2.8.6",
     "express": "^5.2.1",
     "pixi.js": "^8.16.0"
