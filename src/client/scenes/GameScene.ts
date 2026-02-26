@@ -131,12 +131,25 @@ export class GameScene {
       const targetX = -localPlayer.x * z + this.screenWidth / 2;
       const targetY = -localPlayer.y * z + this.screenHeight / 2;
 
-      // Clamp to arena bounds
-      const clampedX = Math.min(0, Math.max(-ARENA_WIDTH * z + this.screenWidth, targetX));
-      const clampedY = Math.min(0, Math.max(-ARENA_HEIGHT * z + this.screenHeight, targetY));
+      const arenaScreenW = ARENA_WIDTH * z;
+      const arenaScreenH = ARENA_HEIGHT * z;
 
-      this.world.x += (clampedX - this.world.x) * 0.1;
-      this.world.y += (clampedY - this.world.y) * 0.1;
+      // If arena fits on screen, center it; otherwise clamp so edges don't show
+      let clampedX: number;
+      let clampedY: number;
+      if (arenaScreenW <= this.screenWidth) {
+        clampedX = (this.screenWidth - arenaScreenW) / 2;
+      } else {
+        clampedX = Math.min(0, Math.max(-arenaScreenW + this.screenWidth, targetX));
+      }
+      if (arenaScreenH <= this.screenHeight) {
+        clampedY = (this.screenHeight - arenaScreenH) / 2;
+      } else {
+        clampedY = Math.min(0, Math.max(-arenaScreenH + this.screenHeight, targetY));
+      }
+
+      this.world.x += (clampedX - this.world.x) * 0.15;
+      this.world.y += (clampedY - this.world.y) * 0.15;
     }
 
     const punchIsKidnapped = state.punch ? (!state.punch.isHome) : false;

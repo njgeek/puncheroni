@@ -1,5 +1,8 @@
 import { Graphics, Container, Text, TextStyle } from 'pixi.js';
-import { ARENA_WIDTH, ARENA_HEIGHT, PUNCH_HP, EXTRACTION_ZONES } from '@shared/constants';
+import {
+  ARENA_WIDTH, ARENA_HEIGHT, PUNCH_HP, EXTRACTION_ZONES,
+  EXTRACTION_ZONE_RADIUS, MAP_WALLS, MAP_ROOMS, PUNCH_X, PUNCH_Y, PUNCH_ZONE_RADIUS,
+} from '@shared/constants';
 
 export class HUD {
   container = new Container();
@@ -124,8 +127,39 @@ export class HUD {
 
   private drawMinimapBg(size: number) {
     this.minimapBg.clear();
+    const s = size / ARENA_WIDTH; // scale factor
+
+    // Dark background
     this.minimapBg.rect(0, 0, size, size);
-    this.minimapBg.fill({ color: 0x000000, alpha: 0.5 });
+    this.minimapBg.fill({ color: 0x0a0e17, alpha: 0.7 });
+
+    // Room floors
+    for (const room of MAP_ROOMS) {
+      this.minimapBg.rect(room.x * s, room.y * s, room.w * s, room.h * s);
+      this.minimapBg.fill({ color: room.color, alpha: 0.5 });
+    }
+
+    // Walls
+    for (const wall of MAP_WALLS) {
+      this.minimapBg.rect(wall.x * s, wall.y * s, wall.w * s, wall.h * s);
+      this.minimapBg.fill({ color: 0x5a6a80, alpha: 0.8 });
+    }
+
+    // Home zone (center circle)
+    this.minimapBg.circle(PUNCH_X * s, PUNCH_Y * s, PUNCH_ZONE_RADIUS * s);
+    this.minimapBg.fill({ color: 0x1a3355, alpha: 0.4 });
+    this.minimapBg.circle(PUNCH_X * s, PUNCH_Y * s, PUNCH_ZONE_RADIUS * s);
+    this.minimapBg.stroke({ width: 1, color: 0x4488aa, alpha: 0.4 });
+
+    // Extraction zones (red circles at edges)
+    for (const zone of EXTRACTION_ZONES) {
+      this.minimapBg.circle(zone.x * s, zone.y * s, EXTRACTION_ZONE_RADIUS * s);
+      this.minimapBg.fill({ color: 0x441111, alpha: 0.3 });
+      this.minimapBg.circle(zone.x * s, zone.y * s, EXTRACTION_ZONE_RADIUS * s);
+      this.minimapBg.stroke({ width: 1, color: 0xff3333, alpha: 0.5 });
+    }
+
+    // Border
     this.minimapBg.rect(0, 0, size, size);
     this.minimapBg.stroke({ width: 1, color: 0x555555 });
   }
