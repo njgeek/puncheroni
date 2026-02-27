@@ -127,41 +127,55 @@ export class HUD {
 
   private drawMinimapBg(size: number) {
     this.minimapBg.clear();
-    const s = size / ARENA_WIDTH; // scale factor
+    const s = size / ARENA_WIDTH;
 
-    // Dark background
+    // Outer hull (very dark)
     this.minimapBg.rect(0, 0, size, size);
-    this.minimapBg.fill({ color: 0x0a0e17, alpha: 0.7 });
+    this.minimapBg.fill({ color: 0x0d1018, alpha: 0.9 });
 
-    // Room floors
+    // Interior walkable floor — cross shape + corner rooms
+    const floorColor = 0x1e2535;
+    // 4 corner rooms
+    this.minimapBg.rect(40 * s, 40 * s, 260 * s, 260 * s);   this.minimapBg.fill({ color: floorColor, alpha: 1 });
+    this.minimapBg.rect(900 * s, 40 * s, 260 * s, 260 * s);  this.minimapBg.fill({ color: floorColor, alpha: 1 });
+    this.minimapBg.rect(40 * s, 900 * s, 260 * s, 260 * s);  this.minimapBg.fill({ color: floorColor, alpha: 1 });
+    this.minimapBg.rect(900 * s, 900 * s, 260 * s, 260 * s); this.minimapBg.fill({ color: floorColor, alpha: 1 });
+    // Horizontal + vertical corridors
+    this.minimapBg.rect(40 * s, 300 * s, 1120 * s, 600 * s); this.minimapBg.fill({ color: floorColor, alpha: 1 });
+    this.minimapBg.rect(300 * s, 40 * s, 600 * s, 1120 * s); this.minimapBg.fill({ color: floorColor, alpha: 1 });
+
+    // Colored room floors
     for (const room of MAP_ROOMS) {
       this.minimapBg.rect(room.x * s, room.y * s, room.w * s, room.h * s);
-      this.minimapBg.fill({ color: room.color, alpha: 0.5 });
+      this.minimapBg.fill({ color: room.color, alpha: 0.6 });
     }
 
-    // Walls
+    // Table obstacles (tiny white rectangles)
     for (const wall of MAP_WALLS) {
-      this.minimapBg.rect(wall.x * s, wall.y * s, wall.w * s, wall.h * s);
-      this.minimapBg.fill({ color: 0x5a6a80, alpha: 0.8 });
+      const ww = Math.max(2, wall.w * s);
+      const wh = Math.max(2, wall.h * s);
+      this.minimapBg.rect(wall.x * s, wall.y * s, ww, wh);
+      this.minimapBg.fill({ color: 0x4a6080, alpha: 0.8 });
     }
 
-    // Home zone (center circle)
+    // Home zone center
     this.minimapBg.circle(PUNCH_X * s, PUNCH_Y * s, PUNCH_ZONE_RADIUS * s);
-    this.minimapBg.fill({ color: 0x1a3355, alpha: 0.4 });
+    this.minimapBg.fill({ color: 0x1a3355, alpha: 0.5 });
     this.minimapBg.circle(PUNCH_X * s, PUNCH_Y * s, PUNCH_ZONE_RADIUS * s);
-    this.minimapBg.stroke({ width: 1, color: 0x4488aa, alpha: 0.4 });
+    this.minimapBg.stroke({ width: 1, color: 0x4488aa, alpha: 0.5 });
 
-    // Extraction zones (red circles at edges)
+    // Extraction zones (red dots at corridor exits)
     for (const zone of EXTRACTION_ZONES) {
-      this.minimapBg.circle(zone.x * s, zone.y * s, EXTRACTION_ZONE_RADIUS * s);
-      this.minimapBg.fill({ color: 0x441111, alpha: 0.3 });
-      this.minimapBg.circle(zone.x * s, zone.y * s, EXTRACTION_ZONE_RADIUS * s);
-      this.minimapBg.stroke({ width: 1, color: 0xff3333, alpha: 0.5 });
+      const r = Math.max(3, EXTRACTION_ZONE_RADIUS * s);
+      this.minimapBg.circle(zone.x * s, zone.y * s, r);
+      this.minimapBg.fill({ color: 0xff2222, alpha: 0.4 });
+      this.minimapBg.circle(zone.x * s, zone.y * s, r);
+      this.minimapBg.stroke({ width: 1, color: 0xff4444, alpha: 0.7 });
     }
 
     // Border
     this.minimapBg.rect(0, 0, size, size);
-    this.minimapBg.stroke({ width: 1, color: 0x555555 });
+    this.minimapBg.stroke({ width: 1, color: 0x445566 });
   }
 
   private positionMinimap(size: number) {

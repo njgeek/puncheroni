@@ -78,60 +78,39 @@ export const RUBBER_BAND_KIDNAPPED_DEFENDER_SPEED_BUFF = 0.25; // defenders fast
 export const RUBBER_BAND_TIME_THRESHOLD = 30;
 export const RUBBER_BAND_ATTACKER_DAMAGE_BUFF = 0.15;
 
-// Map walls (Among Us style rooms with doorway gaps)
+// Map layout constants
+// Rooms: 4 corner rooms + central reactor. Corridors are fully open (no wall dividers).
+// MAP_WALLS = only small console/table obstacles inside rooms — players walk freely around them.
 export const MAP_WALLS: Array<{ x: number; y: number; w: number; h: number }> = [
-  // Horizontal dividers (top and bottom thirds)
-  { x: 0, y: 340, w: 480, h: 20 },
-  { x: 720, y: 340, w: 480, h: 20 },
-  { x: 0, y: 840, w: 480, h: 20 },
-  { x: 720, y: 840, w: 480, h: 20 },
-
-  // Vertical dividers (left and right thirds)
-  { x: 340, y: 0, w: 20, h: 480 },
-  { x: 340, y: 720, w: 20, h: 480 },
-  { x: 840, y: 0, w: 20, h: 480 },
-  { x: 840, y: 720, w: 20, h: 480 },
-
-  // Corner tables/obstacles in rooms
-  { x: 120, y: 120, w: 80, h: 16 },
-  { x: 120, y: 120, w: 16, h: 80 },
-  { x: 1000, y: 120, w: 80, h: 16 },
-  { x: 1064, y: 120, w: 16, h: 80 },
-  { x: 120, y: 1064, w: 80, h: 16 },
-  { x: 120, y: 1000, w: 16, h: 80 },
-  { x: 1000, y: 1064, w: 80, h: 16 },
-  { x: 1064, y: 1000, w: 16, h: 80 },
-
-  // Reactor room walls (4 doorway openings — N, S, E, W)
-  { x: 460, y: 460, w: 16, h: 100 },   // west wall top
-  { x: 460, y: 640, w: 16, h: 100 },   // west wall bottom
-  { x: 724, y: 460, w: 16, h: 100 },   // east wall top
-  { x: 724, y: 640, w: 16, h: 100 },   // east wall bottom
-  { x: 520, y: 460, w: 70, h: 16 },    // north wall left
-  { x: 610, y: 460, w: 70, h: 16 },    // north wall right
-  { x: 520, y: 724, w: 70, h: 16 },    // south wall left
-  { x: 610, y: 724, w: 70, h: 16 },    // south wall right
+  // MedBay console table (top-left room)
+  { x: 105, y: 130, w: 90, h: 18 },
+  // Weapons rack (top-right room)
+  { x: 1005, y: 130, w: 90, h: 18 },
+  // Shields panel (bottom-left room)
+  { x: 105, y: 1052, w: 90, h: 18 },
+  // Engine console (bottom-right room)
+  { x: 1005, y: 1052, w: 90, h: 18 },
 ];
 
 // Room definitions for floor coloring
 export const MAP_ROOMS: Array<{ x: number; y: number; w: number; h: number; color: number; name: string }> = [
-  { x: 476, y: 476, w: 248, h: 248, color: 0x2a3a50, name: 'REACTOR' },
-  { x: 20, y: 20, w: 300, h: 300, color: 0x1e3828, name: 'MEDBAY' },
-  { x: 880, y: 20, w: 300, h: 300, color: 0x382828, name: 'WEAPONS' },
-  { x: 20, y: 880, w: 300, h: 300, color: 0x28281e, name: 'SHIELDS' },
-  { x: 880, y: 880, w: 300, h: 300, color: 0x381e28, name: 'ENGINES' },
+  { x: 440, y: 440, w: 320, h: 320, color: 0x2a3a50, name: 'REACTOR' },
+  { x: 40, y: 40, w: 260, h: 260, color: 0x1e3828, name: 'MEDBAY' },
+  { x: 900, y: 40, w: 260, h: 260, color: 0x382020, name: 'WEAPONS' },
+  { x: 40, y: 900, w: 260, h: 260, color: 0x1e2838, name: 'SHIELDS' },
+  { x: 900, y: 900, w: 260, h: 260, color: 0x30203a, name: 'ENGINES' },
 ];
 
-// Safe spawn points (away from walls, at arena edges in corridor gaps)
+// Safe spawn points — inside corridors, away from extraction zones and table obstacles
 export const SAFE_SPAWN_POINTS = [
-  // Left edge (in corridor gap between walls)
-  { x: 20, y: 200 }, { x: 20, y: 600 }, { x: 20, y: 1000 },
-  // Right edge
-  { x: 1180, y: 200 }, { x: 1180, y: 600 }, { x: 1180, y: 1000 },
-  // Top edge
-  { x: 200, y: 20 }, { x: 600, y: 20 }, { x: 1000, y: 20 },
-  // Bottom edge
-  { x: 200, y: 1180 }, { x: 600, y: 1180 }, { x: 1000, y: 1180 },
+  // Left corridor (x≈150, clear of extraction zone at x=60)
+  { x: 150, y: 420 }, { x: 150, y: 600 }, { x: 150, y: 780 },
+  // Right corridor
+  { x: 1050, y: 420 }, { x: 1050, y: 600 }, { x: 1050, y: 780 },
+  // Top corridor
+  { x: 420, y: 150 }, { x: 600, y: 150 }, { x: 780, y: 150 },
+  // Bottom corridor
+  { x: 420, y: 1050 }, { x: 600, y: 1050 }, { x: 780, y: 1050 },
 ];
 
 // Player
