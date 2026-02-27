@@ -1,31 +1,18 @@
-export enum Team {
-  Defender = 'defender',
-  Attacker = 'attacker',
-}
-
-export enum GamePhase {
-  Lobby = 'lobby',
-  Countdown = 'countdown',
-  Active = 'active',
-  Results = 'results',
-}
-
 export interface PlayerInput {
-  dx: number; // -1 to 1
-  dy: number; // -1 to 1
-  attack: boolean;
-  attackAngle: number; // radians
-  dash: boolean;
+  dx: number;     // -1 to 1
+  dy: number;     // -1 to 1
+  use: boolean;   // interact with task / enter-exit vent
+  kill: boolean;  // impostor kill (one-shot)
+  report: boolean; // report body (one-shot)
+  vote: string;   // vote target sessionId or 'skip' (one-shot, used in meeting)
   seq: number;
 }
 
-export interface RoundStats {
-  winningTeam: Team | null;
-  roundDuration: number;
-  mvpId: string;
-  mvpName: string;
-  mvpDamage: number;
-  defenderKills: number;
-  attackerKills: number;
-  punchHpRemaining: number;
+export type GamePhase = 'lobby' | 'countdown' | 'active' | 'meeting' | 'results';
+
+export interface GameOverStats {
+  winner: 'crewmate' | 'impostor';
+  reason: string;
+  tasksDone: number;
+  tasksTotal: number;
 }

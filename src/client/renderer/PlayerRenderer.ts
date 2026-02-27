@@ -7,10 +7,10 @@ interface PlayerSprite {
   hpBar: Graphics;
   hpBarBg: Graphics;
   nameText: Text;
-  team: string;
-  carrierIndicator: Graphics;
-  carrierLabel: Text;
-  deathMarker: Graphics;
+  role: string;
+  deathBody: Graphics;
+  ventScale: number;  // 0 = fully in vent, 1 = fully out
+  ventScaleTarget: number;
   gameY: number;
 }
 
@@ -21,65 +21,41 @@ export class PlayerRenderer {
   getOrCreate(
     id: string,
     name: string,
-    team: string,
+    role: string,
     isLocal: boolean,
   ): PlayerSprite {
     let sprite = this.sprites.get(id);
-    if (sprite) {
-      if (sprite.team !== team) {
-        this.container.removeChild(sprite.container);
-        this.sprites.delete(id);
-        sprite = undefined;
-      }
+    if (sprite && sprite.role !== role) {
+      this.container.removeChild(sprite.container);
+      this.sprites.delete(id);
+      sprite = undefined;
     }
 
     if (!sprite) {
       const c = new Container();
-      const isDefender = team === 'defender';
 
       const body = new Graphics();
-      if (isDefender) {
-        this.drawCrewmate(body, 0x3b7dd8, 0x5599ee, isLocal);
-      } else {
-        this.drawCrewmate(body, 0xc43a3a, 0xee5555, isLocal);
-      }
+      const bodyColor = role === 'impostor' ? 0xcc3333 : 0x3b7dd8;
+      const lightColor = role === 'impostor' ? 0xee5555 : 0x5599ee;
+      this.drawCrewmate(body, bodyColor, lightColor, isLocal);
       c.addChild(body);
 
-      // Carrier indicator
-      const carrierIndicator = new Graphics();
-      carrierIndicator.alpha = 0;
-      c.addChild(carrierIndicator);
+      // Dead body silhouette (shown when ghost)
+      const deathBody = new Graphics();
+      deathBody.visible = false;
+      c.addChild(deathBody);
 
-      const carrierLabel = new Text({
-        text: 'CARRIER',
-        style: new TextStyle({
-          fontSize: 9,
-          fontWeight: 'bold',
-          fill: '#ffffff',
-          stroke: { color: '#000000', width: 2 },
-        }),
-      });
-      carrierLabel.anchor.set(0.5);
-      carrierLabel.y = -30;
-      carrierLabel.visible = false;
-      c.addChild(carrierLabel);
-
-      // Death marker
-      const deathMarker = new Graphics();
-      deathMarker.visible = false;
-      c.addChild(deathMarker);
-
-      // HP bar bg
+      // HP bar background
       const hpBarBg = new Graphics();
       hpBarBg.roundRect(-PLAYER_RADIUS, -26, PLAYER_RADIUS * 2, 5, 2);
       hpBarBg.fill(0x222222);
       c.addChild(hpBarBg);
 
-      // HP bar
+      // HP bar fill
       const hpBar = new Graphics();
       c.addChild(hpBar);
 
-      // Name
+      // Name label
       const nameText = new Text({
         text: name,
         style: new TextStyle({
@@ -94,8 +70,8 @@ export class PlayerRenderer {
       c.addChild(nameText);
 
       sprite = {
-        container: c, body, hpBar, hpBarBg, nameText, team,
-        carrierIndicator, carrierLabel, deathMarker, gameY: 0,
+        container: c, body, hpBar, hpBarBg, nameText, role,
+        deathBody, ventScale: 1, ventScaleTarget: 1, gameY: 0,
       };
       this.sprites.set(id, sprite);
       this.container.addChild(c);
@@ -104,39 +80,29 @@ export class PlayerRenderer {
     return sprite;
   }
 
-  /** Draw an Among Us crewmate (top-down view) */
   private drawCrewmate(g: Graphics, bodyColor: number, lightColor: number, isLocal: boolean) {
-    // Shadow
     g.ellipse(0, 2, PLAYER_RADIUS + 2, PLAYER_RADIUS - 2);
     g.fill({ color: 0x000000, alpha: 0.25 });
 
-    // Body (bean/capsule shape — rounded rectangle)
     g.roundRect(-10, -14, 20, 28, 8);
     g.fill(bodyColor);
 
-    // Backpack (bump on back/bottom)
     g.roundRect(-13, 0, 6, 12, 3);
     g.fill(bodyColor);
 
-    // Visor (front-facing, lighter color)
     g.roundRect(-6, -12, 12, 8, 3);
     g.fill(0xc8e6ff);
-    // Visor shine
     g.roundRect(-4, -11, 4, 3, 1);
     g.fill({ color: 0xffffff, alpha: 0.5 });
 
-    // Legs (two small bumps at bottom, visible in top-down)
     g.ellipse(-4, 14, 4, 3);
     g.fill(bodyColor);
     g.ellipse(4, 14, 4, 3);
     g.fill(bodyColor);
 
-    // Direction indicator (small line from front)
-    g.moveTo(0, -14);
-    g.lineTo(0, -20);
+    g.moveTo(0, -14); g.lineTo(0, -20);
     g.stroke({ width: 2, color: lightColor, alpha: 0.6 });
 
-    // Local player ring
     if (isLocal) {
       g.circle(0, 0, PLAYER_RADIUS + 4);
       g.stroke({ width: 2, color: 0xffffff, alpha: 0.5 });
@@ -147,13 +113,11 @@ export class PlayerRenderer {
     id: string,
     gameX: number,
     gameY: number,
-    hp: number,
-    maxHp: number,
     alive: boolean,
-    attackAngle: number,
-    isAttacking: boolean,
-    isCarryingPunch: boolean = false,
-    isCarryingPunchHome: boolean = false,
+    isGhost: boolean,
+    inVent: boolean,
+    isLocal: boolean,
+    dt: number,
   ) {
     const sprite = this.sprites.get(id);
     if (!sprite) return;
@@ -162,65 +126,72 @@ export class PlayerRenderer {
     sprite.container.x = gameX;
     sprite.container.y = gameY;
 
-    // Alive/dead
-    if (!alive) {
-      sprite.container.alpha = 0.35;
-      sprite.body.tint = 0x888888;
-      sprite.deathMarker.visible = true;
-      sprite.deathMarker.clear();
-      // Among Us death: body splits in half
-      sprite.deathMarker.rect(-8, -6, 16, 3);
-      sprite.deathMarker.fill(0xff4444);
-      // Bone sticking out
-      sprite.deathMarker.circle(0, -8, 3);
-      sprite.deathMarker.fill(0xeeeeee);
+    // Vent scale animation
+    sprite.ventScaleTarget = inVent ? 0 : 1;
+    sprite.ventScale += (sprite.ventScaleTarget - sprite.ventScale) * 0.2;
+    sprite.container.scale.set(sprite.ventScale);
+
+    if (inVent) {
+      sprite.container.visible = false;
+      return;
+    }
+    sprite.container.visible = true;
+
+    if (isGhost) {
+      // Ghosts: crewmates barely see them (shown as faint shadow)
+      // The VisionRenderer handles full black fog; isLocal ghost sees full map
+      sprite.body.visible = true;
+      sprite.deathBody.visible = true;
+      sprite.body.alpha = 0.0; // hide the standing sprite
+      // Draw flat lying body silhouette
+      sprite.deathBody.clear();
+      sprite.deathBody.ellipse(0, 6, 12, 6);
+      sprite.deathBody.fill({ color: 0x222222, alpha: 0.9 });
+      // Crewmate bean shape lying flat
+      sprite.deathBody.roundRect(-12, 2, 24, 10, 5);
+      sprite.deathBody.fill(sprite.role === 'impostor' ? 0x661111 : 0x1a3a66);
+      sprite.deathBody.roundRect(-9, 4, 8, 6, 3);
+      sprite.deathBody.fill(0x4488bb);
+      sprite.container.alpha = isLocal ? 0.25 : 0.15;
+      sprite.hpBarBg.visible = false;
+      sprite.hpBar.clear();
+    } else if (!alive) {
+      // Legacy dead state (shouldn't normally hit this in Among Us)
+      sprite.container.alpha = 0.3;
+      sprite.body.visible = true;
+      sprite.deathBody.visible = false;
+      sprite.hpBarBg.visible = false;
+      sprite.hpBar.clear();
     } else {
       sprite.container.alpha = 1;
-      sprite.body.tint = 0xffffff;
-      sprite.deathMarker.visible = false;
+      sprite.body.visible = true;
+      sprite.deathBody.visible = false;
+      sprite.body.alpha = 1;
+      sprite.hpBarBg.visible = false; // no HP bars in Among Us
+      sprite.hpBar.clear();
     }
+  }
 
-    // Rotate body to face attack direction
-    sprite.body.rotation = attackAngle + Math.PI / 2; // offset because body faces "up" by default
+  /** Flash a red burst at a world position (kill effect). */
+  spawnKillFlash(gameX: number, gameY: number) {
+    const g = new Graphics();
+    g.circle(0, 0, 22);
+    g.fill({ color: 0xff2222, alpha: 0.7 });
+    g.circle(0, 0, 14);
+    g.fill({ color: 0xff8888, alpha: 0.8 });
+    g.x = gameX;
+    g.y = gameY;
+    this.container.addChild(g);
 
-    // HP bar
-    const ratio = Math.max(0, hp / maxHp);
-    const barWidth = (PLAYER_RADIUS * 2 - 4) * ratio;
-    const color = ratio > 0.5 ? 0x44cc44 : ratio > 0.25 ? 0xccaa22 : 0xcc3333;
-    sprite.hpBar.clear();
-    if (barWidth > 0) {
-      sprite.hpBar.roundRect(-PLAYER_RADIUS + 2, -25, barWidth, 3, 1);
-      sprite.hpBar.fill(color);
-    }
-
-    // Carrier indicator
-    if (isCarryingPunch || isCarryingPunchHome) {
-      const ringColor = isCarryingPunch ? 0xff4444 : 0x44aaff;
-      sprite.carrierIndicator.clear();
-      sprite.carrierIndicator.circle(0, 0, PLAYER_RADIUS + 8);
-      sprite.carrierIndicator.stroke({ width: 3, color: ringColor, alpha: 0.8 });
-      sprite.carrierIndicator.alpha = 1;
-      sprite.carrierLabel.visible = true;
-      sprite.carrierLabel.style.fill = isCarryingPunch ? '#ff6666' : '#66bbff';
-    } else if (isAttacking) {
-      sprite.carrierIndicator.clear();
-      // Melee swing arc
-      const arcColor = sprite.team === 'defender' ? 0x88bbff : 0xff6666;
-      sprite.carrierIndicator.arc(0, 0, PLAYER_RADIUS + 18, attackAngle - 0.6, attackAngle + 0.6);
-      sprite.carrierIndicator.stroke({ width: 4, color: arcColor, alpha: 0.7 });
-      // Impact flash
-      const flashX = Math.cos(attackAngle) * (PLAYER_RADIUS + 14);
-      const flashY = Math.sin(attackAngle) * (PLAYER_RADIUS + 14);
-      sprite.carrierIndicator.circle(flashX, flashY, 6);
-      sprite.carrierIndicator.fill({ color: 0xffffff, alpha: 0.5 });
-      sprite.carrierIndicator.alpha = 1;
-      sprite.carrierLabel.visible = false;
-    } else {
-      if (sprite.carrierIndicator.alpha > 0) {
-        sprite.carrierIndicator.alpha -= 0.15;
-      }
-      sprite.carrierLabel.visible = false;
-    }
+    let life = 0.5;
+    const fade = () => {
+      life -= 1 / 60;
+      g.alpha = Math.max(0, life / 0.5);
+      g.scale.set(1 + (0.5 - life));
+      if (life > 0) requestAnimationFrame(fade);
+      else this.container.removeChild(g);
+    };
+    requestAnimationFrame(fade);
   }
 
   getGameY(id: string): number {
@@ -228,15 +199,12 @@ export class PlayerRenderer {
   }
 
   remove(id: string) {
-    const sprite = this.sprites.get(id);
-    if (sprite) {
-      this.container.removeChild(sprite.container);
-      this.sprites.delete(id);
-    }
+    const s = this.sprites.get(id);
+    if (s) { this.container.removeChild(s.container); this.sprites.delete(id); }
   }
 
   clear() {
-    this.sprites.forEach((s) => this.container.removeChild(s.container));
+    this.sprites.forEach(s => this.container.removeChild(s.container));
     this.sprites.clear();
   }
 }

@@ -1,25 +1,21 @@
 export class TouchInput {
   private _dx = 0;
   private _dy = 0;
-  private _attackPressed = false;
-  private _dashPressed = false;
-  private _attackAngle = 0;
+  private _usePressed = false;
+  private _killPressed = false;
+  private _reportPressed = false;
   private _lastMoveAngle = 0;
 
   private joystickCenter = { x: 0, y: 0 };
-  private joystickActive = false;
   private joystickId: number | null = null;
 
   private container: HTMLElement;
   private isMobile: boolean;
-  private cooldowns = new Map<string, number>();
 
   constructor(container: HTMLElement) {
     this.container = container;
     this.isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-
     if (!this.isMobile) return;
-
     this.setupControls();
   }
 
@@ -48,24 +44,13 @@ export class TouchInput {
             display: flex; align-items: center; justify-content: center;
             flex-direction: column; gap: 2px;
           ">
-            <div style="
-              font-size: 18px; line-height: 1; opacity: 0.4; margin-top: -2px;
-              color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.5);
-            ">&#9650;</div>
-            <div style="display: flex; gap: 18px; opacity: 0.4; color: #fff;">
-              <span style="font-size: 18px;">&#9664;</span>
-              <span style="font-size: 18px;">&#9654;</span>
+            <div style="font-size:18px;opacity:0.4;color:#fff;">&#9650;</div>
+            <div style="display:flex;gap:18px;opacity:0.4;color:#fff;">
+              <span style="font-size:18px;">&#9664;</span>
+              <span style="font-size:18px;">&#9654;</span>
             </div>
-            <div style="
-              color: rgba(255,255,255,0.4);
-              font-size: 10px; font-weight: 700;
-              letter-spacing: 1px;
-              text-shadow: 0 1px 3px rgba(0,0,0,0.5);
-            ">MOVE</div>
-            <div style="
-              font-size: 18px; line-height: 1; opacity: 0.4; margin-bottom: -2px;
-              color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.5);
-            ">&#9660;</div>
+            <div style="color:rgba(255,255,255,0.4);font-size:10px;font-weight:700;letter-spacing:1px;">MOVE</div>
+            <div style="font-size:18px;opacity:0.4;color:#fff;">&#9660;</div>
           </div>
         </div>
         <div id="joystick-base" style="
@@ -94,31 +79,44 @@ export class TouchInput {
         padding-bottom: env(safe-area-inset-bottom, 0);
         padding-right: env(safe-area-inset-right, 0);
       ">
-        <button id="btn-dash" style="
-          position: absolute; right: 92px; bottom: 12px;
-          width: 62px; height: 62px; border-radius: 50%;
-          background: rgba(255,165,0,0.25);
-          border: 2px solid rgba(255,165,0,0.5);
-          color: #fff; font-size: 11px; font-weight: 800;
-          letter-spacing: 0.5px; opacity: 0.7;
+        <button id="btn-report" style="
+          display: none;
+          position: absolute; right: 186px; bottom: 12px;
+          width: 68px; height: 68px; border-radius: 50%;
+          background: rgba(255,140,0,0.3);
+          border: 2.5px solid rgba(255,140,0,0.7);
+          color: #fff; font-size: 10px; font-weight: 800;
+          letter-spacing: 0.5px; opacity: 0.9;
           text-shadow: 0 1px 3px rgba(0,0,0,0.5);
           -webkit-tap-highlight-color: transparent;
           touch-action: manipulation;
-          transition: opacity 0.1s;
-        ">DASH</button>
-        <button id="btn-attack" style="
+        ">REPORT</button>
+        <button id="btn-kill" style="
+          display: none;
+          position: absolute; right: 96px; bottom: 12px;
+          width: 68px; height: 68px; border-radius: 50%;
+          background: rgba(255,40,40,0.35);
+          border: 2.5px solid rgba(255,40,40,0.7);
+          color: #fff; font-size: 11px; font-weight: 900;
+          letter-spacing: 1px; opacity: 0.9;
+          box-shadow: 0 0 15px rgba(255,40,40,0.2);
+          text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+          -webkit-tap-highlight-color: transparent;
+          touch-action: manipulation;
+        ">KILL</button>
+        <button id="btn-use" style="
           position: absolute; right: 0; bottom: 20px;
           width: 82px; height: 82px; border-radius: 50%;
-          background: rgba(255,74,74,0.3);
-          border: 2.5px solid rgba(255,74,74,0.6);
+          background: rgba(44,200,80,0.3);
+          border: 2.5px solid rgba(44,200,80,0.7);
           color: #fff; font-size: 14px; font-weight: 900;
           letter-spacing: 1px; opacity: 0.7;
-          box-shadow: 0 0 15px rgba(255,74,74,0.15);
+          box-shadow: 0 0 15px rgba(44,200,80,0.15);
           text-shadow: 0 1px 3px rgba(0,0,0,0.5);
           -webkit-tap-highlight-color: transparent;
           touch-action: manipulation;
           transition: opacity 0.1s;
-        ">ATK</button>
+        ">USE</button>
       </div>
     `;
 
@@ -131,7 +129,6 @@ export class TouchInput {
       if (this.joystickId !== null) return;
       const touch = e.changedTouches[0];
       this.joystickId = touch.identifier;
-      this.joystickActive = true;
       this.joystickCenter = { x: touch.clientX, y: touch.clientY };
       joystickIdle.style.display = 'none';
       joystickBase.style.display = 'block';
@@ -143,22 +140,19 @@ export class TouchInput {
     joystickZone.addEventListener('touchmove', (e) => {
       for (let i = 0; i < e.changedTouches.length; i++) {
         const touch = e.changedTouches[i];
-        if (touch.identifier === this.joystickId) {
-          const dx = touch.clientX - this.joystickCenter.x;
-          const dy = touch.clientY - this.joystickCenter.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          const maxDist = 60;
-          const clampedDist = Math.min(dist, maxDist);
-          const angle = Math.atan2(dy, dx);
-
-          this._dx = (clampedDist / maxDist) * Math.cos(angle);
-          this._dy = (clampedDist / maxDist) * Math.sin(angle);
-          this._lastMoveAngle = angle;
-
-          const knobX = Math.cos(angle) * clampedDist;
-          const knobY = Math.sin(angle) * clampedDist;
-          joystickKnob.style.transform = `translate(calc(-50% + ${knobX}px), calc(-50% + ${knobY}px))`;
-        }
+        if (touch.identifier !== this.joystickId) continue;
+        const dx = touch.clientX - this.joystickCenter.x;
+        const dy = touch.clientY - this.joystickCenter.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const maxDist = 60;
+        const clamped = Math.min(dist, maxDist);
+        const angle = Math.atan2(dy, dx);
+        this._dx = (clamped / maxDist) * Math.cos(angle);
+        this._dy = (clamped / maxDist) * Math.sin(angle);
+        this._lastMoveAngle = angle;
+        const kx = Math.cos(angle) * clamped;
+        const ky = Math.sin(angle) * clamped;
+        joystickKnob.style.transform = `translate(calc(-50% + ${kx}px), calc(-50% + ${ky}px))`;
       }
       e.preventDefault();
     }, { passive: false });
@@ -166,7 +160,6 @@ export class TouchInput {
     const endJoystick = (e: TouchEvent) => {
       for (let i = 0; i < e.changedTouches.length; i++) {
         if (e.changedTouches[i].identifier === this.joystickId) {
-          this.joystickActive = false;
           this.joystickId = null;
           this._dx = 0;
           this._dy = 0;
@@ -176,37 +169,42 @@ export class TouchInput {
         }
       }
     };
-
     joystickZone.addEventListener('touchend', endJoystick, { passive: false });
     joystickZone.addEventListener('touchcancel', endJoystick, { passive: false });
 
     // Action buttons
-    const btnAttack = this.container.querySelector('#btn-attack') as HTMLElement;
-    const btnDash = this.container.querySelector('#btn-dash') as HTMLElement;
+    const btnUse    = this.container.querySelector('#btn-use')    as HTMLElement;
+    const btnKill   = this.container.querySelector('#btn-kill')   as HTMLElement;
+    const btnReport = this.container.querySelector('#btn-report') as HTMLElement;
 
-    const flashButton = (btn: HTMLElement) => {
+    const flash = (btn: HTMLElement) => {
       btn.style.opacity = '0.95';
       btn.style.filter = 'brightness(1.5)';
       btn.style.transform = 'scale(0.92)';
       setTimeout(() => {
-        btn.style.opacity = '0.7';
+        btn.style.opacity = '';
         btn.style.filter = '';
         btn.style.transform = '';
       }, 120);
     };
 
-    btnAttack.addEventListener('touchstart', (e) => {
-      if (this.isOnCooldown('attack')) return;
-      this._attackPressed = true;
-      flashButton(btnAttack);
+    btnUse.addEventListener('touchstart', (e) => {
+      this._usePressed = true;
+      flash(btnUse);
       e.preventDefault();
       e.stopPropagation();
     }, { passive: false });
 
-    btnDash.addEventListener('touchstart', (e) => {
-      if (this.isOnCooldown('dash')) return;
-      this._dashPressed = true;
-      flashButton(btnDash);
+    btnKill.addEventListener('touchstart', (e) => {
+      this._killPressed = true;
+      flash(btnKill);
+      e.preventDefault();
+      e.stopPropagation();
+    }, { passive: false });
+
+    btnReport.addEventListener('touchstart', (e) => {
+      this._reportPressed = true;
+      flash(btnReport);
       e.preventDefault();
       e.stopPropagation();
     }, { passive: false });
@@ -222,65 +220,29 @@ export class TouchInput {
     return this._lastMoveAngle;
   }
 
-  set attackAngleOverride(angle: number) {
-    this._attackAngle = angle;
-  }
+  consumeUse(): boolean    { const v = this._usePressed;    this._usePressed = false;    return v; }
+  consumeKill(): boolean   { const v = this._killPressed;   this._killPressed = false;   return v; }
+  consumeReport(): boolean { const v = this._reportPressed; this._reportPressed = false; return v; }
 
-  consumeAttack(): boolean {
-    const v = this._attackPressed;
-    this._attackPressed = false;
-    return v;
-  }
-
-  consumeDash(): boolean {
-    const v = this._dashPressed;
-    this._dashPressed = false;
-    return v;
-  }
-
-  setCooldown(buttonId: string, durationMs: number) {
-    this.cooldowns.set(buttonId, Date.now() + durationMs);
-
-    const btnMap: Record<string, string> = {
-      attack: '#btn-attack',
-      dash: '#btn-dash',
-    };
-
-    const btnEl = this.container.querySelector(btnMap[buttonId]) as HTMLElement | null;
-    if (btnEl) {
-      btnEl.style.opacity = '0.3';
-      btnEl.style.filter = 'grayscale(0.8)';
-      setTimeout(() => {
-        btnEl.style.opacity = '0.7';
-        btnEl.style.filter = '';
-      }, durationMs);
-    }
-  }
-
-  private isOnCooldown(buttonId: string): boolean {
-    const until = this.cooldowns.get(buttonId);
-    if (!until) return false;
-    return Date.now() < until;
-  }
-
-  setRole(team: string) {
+  /** Show/hide KILL button based on role. */
+  setRole(role: string) {
     if (!this.isMobile) return;
-    const btnAttack = this.container.querySelector('#btn-attack') as HTMLElement | null;
-    const btnDash = this.container.querySelector('#btn-dash') as HTMLElement | null;
+    const btnKill = this.container.querySelector('#btn-kill') as HTMLElement | null;
+    if (btnKill) btnKill.style.display = role === 'impostor' ? 'block' : 'none';
+  }
 
-    if (btnAttack) {
-      if (team === 'attacker') {
-        btnAttack.textContent = 'KICK';
-        btnAttack.style.background = 'rgba(255,74,74,0.3)';
-        btnAttack.style.borderColor = 'rgba(255,74,74,0.6)';
-      } else {
-        btnAttack.textContent = 'PUNCH';
-        btnAttack.style.background = 'rgba(74,158,255,0.3)';
-        btnAttack.style.borderColor = 'rgba(74,158,255,0.6)';
-      }
-    }
-    if (btnDash) {
-      btnDash.textContent = 'DASH';
+  /** Show/hide REPORT button when near a body. */
+  setReportVisible(visible: boolean) {
+    const btn = this.container.querySelector('#btn-report') as HTMLElement | null;
+    if (btn) btn.style.display = visible ? 'block' : 'none';
+  }
+
+  /** Gray out KILL button during cooldown. */
+  setKillOnCooldown(onCooldown: boolean) {
+    const btn = this.container.querySelector('#btn-kill') as HTMLElement | null;
+    if (btn) {
+      btn.style.opacity = onCooldown ? '0.3' : '0.9';
+      btn.style.filter = onCooldown ? 'grayscale(0.8)' : '';
     }
   }
 }

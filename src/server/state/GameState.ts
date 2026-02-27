@@ -1,100 +1,113 @@
 import { Schema, MapSchema, defineTypes } from '@colyseus/schema';
 
+// ── Task station ──────────────────────────────────────────────────────────────
+export class Task extends Schema {
+  id: string = '';
+  x: number = 0;
+  y: number = 0;
+  name: string = '';
+  room: string = '';
+  done: boolean = false;
+}
+defineTypes(Task, {
+  id: 'string',
+  x: 'number',
+  y: 'number',
+  name: 'string',
+  room: 'string',
+  done: 'boolean',
+});
+
+// ── Dead body left after a kill ───────────────────────────────────────────────
+export class DeadBody extends Schema {
+  id: string = '';
+  x: number = 0;
+  y: number = 0;
+  playerName: string = '';
+}
+defineTypes(DeadBody, {
+  id: 'string',
+  x: 'number',
+  y: 'number',
+  playerName: 'string',
+});
+
+// ── Meeting state (active during emergency / body report) ─────────────────────
+export class MeetingState extends Schema {
+  active: boolean = false;
+  phase: string = '';          // 'discussion' | 'voting' | 'result'
+  reporterName: string = '';
+  bodyName: string = '';
+  timer: number = 0;
+  ejectedName: string = '';
+  ejectedWasImpostor: boolean = false;
+  ejectedRole: string = '';
+}
+defineTypes(MeetingState, {
+  active: 'boolean',
+  phase: 'string',
+  reporterName: 'string',
+  bodyName: 'string',
+  timer: 'number',
+  ejectedName: 'string',
+  ejectedWasImpostor: 'boolean',
+  ejectedRole: 'string',
+});
+
+// ── Player ────────────────────────────────────────────────────────────────────
 export class Player extends Schema {
   id: string = '';
   name: string = '';
-  team: string = 'defender';
   x: number = 0;
   y: number = 0;
-  hp: number = 100;
-  maxHp: number = 100;
-  speed: number = 3;
   alive: boolean = true;
-  respawnAt: number = 0;
-  lastAttackTime: number = 0;
-  lastDashTime: number = 0;
-  isDashing: boolean = false;
-  dashEndTime: number = 0;
-  dashDx: number = 0;
-  dashDy: number = 0;
-  damageDealt: number = 0;
-  kills: number = 0;
-  attackAngle: number = 0;
-  isAttacking: boolean = false;
-  attackEndTime: number = 0;
-  isCarryingPunch: boolean = false;
-  isCarryingPunchHome: boolean = false; // defender carrying Punch back to center
-  preferredTeam: string = ''; // player's team preference from lobby
-  lastHitBy: string = ''; // sessionId of last player who hit this player
+  isGhost: boolean = false;
+  inVent: boolean = false;
+  role: string = '';           // 'crewmate' | 'impostor'
+  tasksDone: number = 0;
+  tasksTotal: number = 0;
+  killCooldownEnd: number = 0;
+  votedFor: string = '';
+  speed: number = 3;
 }
 defineTypes(Player, {
   id: 'string',
   name: 'string',
-  team: 'string',
   x: 'number',
   y: 'number',
-  hp: 'number',
-  maxHp: 'number',
-  speed: 'number',
   alive: 'boolean',
-  respawnAt: 'number',
-  lastAttackTime: 'number',
-  lastDashTime: 'number',
-  isDashing: 'boolean',
-  dashEndTime: 'number',
-  dashDx: 'number',
-  dashDy: 'number',
-  damageDealt: 'number',
-  kills: 'number',
-  attackAngle: 'number',
-  isAttacking: 'boolean',
-  attackEndTime: 'number',
-  isCarryingPunch: 'boolean',
-  isCarryingPunchHome: 'boolean',
-  preferredTeam: 'string',
-  lastHitBy: 'string',
+  isGhost: 'boolean',
+  inVent: 'boolean',
+  role: 'string',
+  tasksDone: 'number',
+  tasksTotal: 'number',
+  killCooldownEnd: 'number',
+  votedFor: 'string',
+  speed: 'number',
 });
 
-export class PunchVIP extends Schema {
-  x: number = 600;
-  y: number = 600;
-  hp: number = 100;
-  maxHp: number = 100;
-  lastKnockbackTime: number = 0;
-  isKnockbackActive: boolean = false;
-  isKidnapped: boolean = false;
-  carriedBy: string = ''; // sessionId of carrier (attacker or defender)
-  dropImmuneUntil: number = 0; // timestamp — can't be grabbed right after drop
-  isHome: boolean = true; // true when Punch is at center
-}
-defineTypes(PunchVIP, {
-  x: 'number',
-  y: 'number',
-  hp: 'number',
-  maxHp: 'number',
-  lastKnockbackTime: 'number',
-  isKnockbackActive: 'boolean',
-  isKidnapped: 'boolean',
-  carriedBy: 'string',
-  dropImmuneUntil: 'number',
-  isHome: 'boolean',
-});
-
+// ── Game state ─────────────────────────────────────────────────────────────────
 export class GameState extends Schema {
   players = new MapSchema<Player>();
-  punch = new PunchVIP();
+  bodies = new MapSchema<DeadBody>();
+  tasks = new MapSchema<Task>();
+  meeting = new MeetingState();
   phase: string = 'lobby';
   roundTimer: number = 300;
   countdown: number = 3;
-  winningTeam: string = '';
-  roundNumber: number = 0;
+  taskTotal: number = 0;
+  tasksDone: number = 0;
+  winner: string = '';
 }
 defineTypes(GameState, {
   players: { map: Player },
-  punch: PunchVIP,
+  bodies: { map: DeadBody },
+  tasks: { map: Task },
+  meeting: MeetingState,
   phase: 'string',
   roundTimer: 'number',
   countdown: 'number',
-  winningTeam: 'string',
-  roundNumber: 'number',
+  taskTotal: 'number',
+  tasksDone: 'number',
+  winner: 'string',
 });

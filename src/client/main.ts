@@ -6,8 +6,8 @@ import { GameScene } from './scenes/GameScene';
 import { LobbyScene } from './scenes/LobbyScene';
 import { ResultScene } from './scenes/ResultScene';
 import { AudioManager } from './renderer/AudioManager';
-import { showToast, showRoleBanner, hideRoleBanner, showRespawnTimer, hideRespawnTimer } from './ui/HUD';
-import { RESPAWN_TIME, PUNCH_X, PUNCH_Y } from '@shared/constants';
+import { showToast, showRoleBanner, hideRoleBanner } from './ui/HUD';
+import { QUICK_PHRASES } from '@shared/constants';
 
 function getScreenSize() {
   if (window.visualViewport) {
@@ -18,11 +18,9 @@ function getScreenSize() {
 
 async function main() {
   const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
-
   canvas.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
   canvas.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
   canvas.addEventListener('touchend', (e) => e.preventDefault(), { passive: false });
-
   document.body.addEventListener('touchmove', (e) => {
     if (e.touches.length === 1) e.preventDefault();
   }, { passive: false });
@@ -40,7 +38,6 @@ async function main() {
     autoDensity: true,
   });
 
-  // Scenes & UI
   const lobby = new LobbyScene();
   const gameScene = new GameScene(app);
   const results = new ResultScene();
@@ -48,143 +45,175 @@ async function main() {
 
   gameScene.init(initW, initH);
 
-  // Input
   const keyboard = new KeyboardInput(canvas);
   const touchContainer = document.getElementById('mobile-controls')!;
   const touch = new TouchInput(touchContainer);
 
-  // Network
   const connection = new ClientConnection();
+  (window as any)._connection = connection;
   let currentState: any = null;
-  let myTeam = 'defender';
-  let preferredTeam = '';
+  let myRole = 'crewmate';
+  let myIsGhost = false;
+  let myName = '';
   let inputSeq = 0;
-  let wasPunchKidnapped = false;
-  let respawnEndTime = 0;
 
+  // Per-player task list (received from roleReveal)
+  let myTasks: Array<{ id: string; name: string; room: string; x: number; y: number }> = [];
+  let impostorNames: string[] = [];
+
+  // Vent state
+  let ventOptions: Array<{ id: number; x: number; y: number }> | null = null;
+
+  // ── State change ────────────────────────────────────────────────────────────
   connection.onStateChange = (state) => {
     currentState = state;
-
     const phase = state.phase;
-    const playerCount = state.players?.size || 0;
+    const playerCount = state.players?.size ?? 0;
 
     if (phase === 'lobby') {
       lobby.show();
       lobby.setPlayerCount(playerCount);
       results.hide();
       hideRoleBanner();
+      hideMeetingOverlay();
     } else if (phase === 'countdown') {
       lobby.hide();
       results.hide();
-      const countdownOverlay = document.getElementById('countdown-overlay')!;
-      const countdownNumber = document.getElementById('countdown-number')!;
-      const countdownObjective = document.getElementById('countdown-objective')!;
-      const countdownRole = document.getElementById('countdown-role')!;
-      countdownOverlay.classList.remove('hidden');
-      countdownNumber.textContent = String(Math.ceil(state.countdown));
-
-      if (myTeam === 'defender') {
-        countdownRole.textContent = "PUNCH'S FRIEND";
-        countdownRole.style.color = '#88bbff';
-        countdownObjective.textContent = 'Block enemies! Keep Punch safe for 5 minutes!';
-        countdownObjective.style.color = '#88bbff';
+      hideMeetingOverlay();
+      const overlay = document.getElementById('countdown-overlay')!;
+      const number = document.getElementById('countdown-number')!;
+      const roleEl = document.getElementById('countdown-role')!;
+      const objEl = document.getElementById('countdown-objective')!;
+      overlay.classList.remove('hidden');
+      number.textContent = String(Math.ceil(state.countdown));
+      if (myRole === 'impostor') {
+        roleEl.textContent = 'IMPOSTOR';
+        roleEl.style.color = '#ff4444';
+        objEl.textContent = 'Kill crewmates. Avoid being voted out!';
+        objEl.style.color = '#ff8888';
       } else {
-        countdownRole.textContent = "PUNCH'S FOE";
-        countdownRole.style.color = '#ff8888';
-        countdownObjective.textContent = 'Grab Punch! Carry him to a red EXIT zone!';
-        countdownObjective.style.color = '#ff8888';
+        roleEl.textContent = 'CREWMATE';
+        roleEl.style.color = '#44ff88';
+        objEl.textContent = 'Complete tasks. Find the impostors!';
+        objEl.style.color = '#88ffbb';
       }
       if (state.countdown <= 0) {
-        countdownOverlay.classList.add('hidden');
+        overlay.classList.add('hidden');
       }
-
-      showRoleBanner(myTeam);
+      showRoleBanner(myRole);
     } else if (phase === 'active') {
       lobby.hide();
       results.hide();
       document.getElementById('countdown-overlay')!.classList.add('hidden');
-      showRoleBanner(myTeam);
+      showRoleBanner(myRole);
+      // Show task list for crewmates
+      const taskPanel = document.getElementById('task-list-panel');
+      if (taskPanel) taskPanel.style.display = myRole === 'crewmate' ? 'block' : 'none';
+
+      // Update local ghost/role state
+      if (currentState?.players) {
+        const localPlayer = currentState.players.get(connection.sessionId);
+        if (localPlayer) {
+          gameScene.setLocalRole(localPlayer.role, localPlayer.isGhost);
+        }
+      }
     } else if (phase === 'results') {
       hideRoleBanner();
-      hideRespawnTimer();
+      hideMeetingOverlay();
+    } else if (phase === 'meeting') {
+      // Meeting overlay managed by meetingStart message
     }
   };
 
-  lobby.onTeamSelect = (team) => {
-    preferredTeam = team;
-    connection.sendTeamPreference(team);
-  };
+  connection.onPlayerCountChange = (count) => lobby.setPlayerCount(count);
 
+  // ── Welcome ─────────────────────────────────────────────────────────────────
   connection.onWelcome = (data) => {
-    console.log(`Welcome, ${data.name}! Team: ${data.team}`);
-    myTeam = data.team;
-    lobby.setTeam(data.team);
-    touch.setRole(data.team);
+    myName = data.name;
     gameScene.setLocalPlayer(connection.sessionId);
+    console.log(`Welcome, ${myName}!`);
+  };
 
-    // Show assigned message if different from preference
-    if (preferredTeam && preferredTeam !== data.team) {
-      lobby.showAssignedMessage(preferredTeam, data.team);
+  // ── Update task checkmarks when state changes ─────────────────────────────
+  let prevTasksDone = 0;
+
+  // ── Role reveal ─────────────────────────────────────────────────────────────
+  connection.onRoleReveal = (data) => {
+    myRole = data.role;
+    myIsGhost = false;
+    myTasks = data.tasks ?? [];
+    impostorNames = data.impostorNames ?? [];
+
+    gameScene.setLocalRole(myRole, false);
+    touch.setRole(myRole);
+
+    // Show role reveal overlay
+    showRoleReveal(myRole);
+
+    // Populate task list panel
+    populateTaskList(myTasks);
+
+    // Show impostor teammates hint
+    if (myRole === 'impostor' && impostorNames.length > 1) {
+      const others = impostorNames.filter(n => n !== myName).join(', ');
+      if (others) showToast(`Fellow impostors: ${others}`, '#ff6666');
+    }
+
+    gameScene.hud.showRoleHint(myRole);
+  };
+
+  // ── Meeting start ───────────────────────────────────────────────────────────
+  connection.onMeetingStart = (data) => {
+    audio.playKidnap(); // Repurpose as emergency alarm
+    gameScene.flashScreen(0xff8800, 0.2, 0.5);
+    showMeetingDiscussion(data);
+  };
+
+  connection.onMeetingPhaseChange = (data) => {
+    if (data.phase === 'voting') {
+      showMeetingVoting(currentState);
     }
   };
 
-  connection.onTeamUpdate = (data) => {
-    myTeam = data.team;
-    lobby.setTeam(data.team);
-    touch.setRole(data.team);
+  // ── Quick phrase ────────────────────────────────────────────────────────────
+  connection.onQuickPhrase = (data) => {
+    appendPhraseToChat(data.name, data.phrase);
   };
 
-  connection.onPlayerCountChange = (count) => {
-    lobby.setPlayerCount(count);
+  // ── Vote result ─────────────────────────────────────────────────────────────
+  connection.onVoteResult = (data) => {
+    showVoteResult(data);
   };
 
-  connection.onTeamCounts = (data) => {
-    lobby.setTeamCounts(data.friends, data.foes);
-    // Also update total player count — more reliable than relying on
-    // onStateChange alone (mobile can miss MapSchema patches)
-    lobby.setPlayerCount(data.friends + data.foes);
-  };
-
-  connection.onPlayerEliminated = (data) => {
-    const isLocalDeath = data.victimId === connection.sessionId;
-    if (isLocalDeath) {
-      showToast(`Eliminated by ${data.killerName}`, '#ff4444');
-      gameScene.flashScreen(0xff0000, 0.3, 0.5);
-      respawnEndTime = Date.now() + RESPAWN_TIME;
-    } else if (data.killerId === connection.sessionId) {
-      showToast(`Eliminated ${data.victimName}`, '#44ff44');
-    } else {
-      showToast(`${data.killerName} eliminated ${data.victimName}`, '#aaaaaa');
-    }
-  };
-
-  connection.onRoundResults = (data) => {
-    results.show(data);
+  // ── Game over ────────────────────────────────────────────────────────────────
+  connection.onGameOver = (data) => {
     audio.playRoundEnd();
-  };
-
-  connection.onPunchRescued = () => {
-    audio.playRescue();
-    showToast('Punch rescued!', '#44aaff');
-    gameScene.flashScreen(0x4488ff, 0.15, 0.4);
-    wasPunchKidnapped = false;
-  };
-
-  gameScene.onKnockback = () => audio.playKnockback();
-  gameScene.onPhaseChange = (phase) => {
-    if (phase === 'active') {
-      audio.playRoundStart();
-      wasPunchKidnapped = false;
-      gameScene.hud.showRoleHint(myTeam);
-      if (myTeam === 'defender') {
-        showToast('Guard the center!', '#88bbff');
-      } else {
-        showToast('Rush to grab Punch!', '#ff8888');
-      }
+    hideMeetingOverlay();
+    results.show({
+      winningTeam: data.winner === 'crewmate' ? 'defender' : 'attacker',
+      roundDuration: 0,
+      mvpId: '',
+      mvpName: '',
+      mvpDamage: 0,
+      defenderKills: data.tasksDone,
+      attackerKills: data.tasksTotal,
+      winner: data.winner,
+      reason: data.reason,
+    });
+    if (data.winner === 'crewmate') {
+      showToast('Crewmates win!', '#44ff88');
+    } else {
+      showToast('Impostors win!', '#ff4444');
     }
   };
 
-  // Connect with auto-retry
+  // ── Vent options ─────────────────────────────────────────────────────────────
+  connection.onVentOptions = (data) => {
+    ventOptions = data.connections;
+    showVentMenu(data.ventId, data.connections);
+  };
+
+  // ── Connect ─────────────────────────────────────────────────────────────────
   const maxRetries = 5;
   let connected = false;
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -192,7 +221,6 @@ async function main() {
       const lobbyStatus = document.getElementById('lobby-status')!;
       lobbyStatus.textContent = attempt === 1 ? 'Connecting...' : `Reconnecting (${attempt}/${maxRetries})...`;
       await connection.connect();
-      console.log('Connected! Session:', connection.sessionId);
       connected = true;
       break;
     } catch (err) {
@@ -210,7 +238,7 @@ async function main() {
     return;
   }
 
-  // Audio context resume on first interaction
+  // Audio resume on first interaction
   const resumeAudio = () => {
     audio.ensureResumed();
     document.removeEventListener('click', resumeAudio);
@@ -219,107 +247,271 @@ async function main() {
   document.addEventListener('click', resumeAudio);
   document.addEventListener('touchstart', resumeAudio);
 
-  // Resize handling
+  // Resize
   const handleResize = () => {
     const { w, h } = getScreenSize();
     app.renderer.resize(w, h);
     gameScene.resize(w, h);
   };
   window.addEventListener('resize', handleResize);
-  window.addEventListener('orientationchange', () => {
-    setTimeout(handleResize, 150);
-  });
-  if (window.visualViewport) {
-    window.visualViewport.addEventListener('resize', handleResize);
-  }
+  window.addEventListener('orientationchange', () => setTimeout(handleResize, 150));
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', handleResize);
 
-  // Game loop
-  app.ticker.add((ticker) => {
-    const dt = ticker.deltaTime / 60;
+  // ── Phase change callbacks ─────────────────────────────────────────────────
+  gameScene.onPhaseChange = (phase) => {
+    if (phase === 'active') {
+      audio.playRoundStart();
+      if (myRole === 'crewmate') showToast('Complete your tasks!', '#44ff88');
+      else showToast('Eliminate crewmates!', '#ff4444');
+    }
+  };
 
-    // Gather input
+  // ── Game loop ──────────────────────────────────────────────────────────────
+  app.ticker.add(() => {
     const useMobile = touch.active;
-    const rawDx = useMobile ? touch.dx : keyboard.dx;
-    const rawDy = useMobile ? touch.dy : keyboard.dy;
-    const attackPressed = useMobile ? touch.consumeAttack() : keyboard.consumeAttack();
-    const dashPressed = useMobile ? touch.consumeDash() : keyboard.consumeDash();
+    const dx = useMobile ? touch.dx : keyboard.dx;
+    const dy = useMobile ? touch.dy : keyboard.dy;
+    const usePressed = useMobile ? touch.consumeUse() : keyboard.consumeUse();
+    const killPressed = useMobile ? touch.consumeKill() : keyboard.consumeKill();
+    const reportPressed = useMobile ? touch.consumeReport() : keyboard.consumeReport();
 
-    // Flat 2D — no rotation needed
-    const dx = rawDx;
-    const dy = rawDy;
-
-    const attackAngle = useMobile
-      ? touch.attackAngle
-      : gameScene.getAttackAngle(keyboard.mouseX, keyboard.mouseY);
-
-    // Send input to server
-    if (dx !== 0 || dy !== 0 || attackPressed || dashPressed) {
-      connection.sendInput({
-        dx,
-        dy,
-        attack: attackPressed,
-        attackAngle,
-        dash: dashPressed,
-        seq: ++inputSeq,
-      });
-
-      if (attackPressed) audio.playHit();
-      if (dashPressed) audio.playDash();
-    } else if (currentState?.phase === 'active') {
-      connection.sendInput({
-        dx: 0,
-        dy: 0,
-        attack: false,
-        attackAngle,
-        dash: false,
-        seq: ++inputSeq,
-      });
-    }
-
-    // Kidnap event (play sound + toast once)
-    if (currentState?.punch) {
-      const isNowKidnapped = currentState.punch.isKidnapped && currentState.punch.carriedBy;
-      if (isNowKidnapped && !wasPunchKidnapped) {
-        audio.playKidnap();
-        showToast('Punch kidnapped!', '#ff4444');
-        gameScene.flashScreen(0xff0000, 0.2, 0.4);
-      }
-      wasPunchKidnapped = !!isNowKidnapped;
-    }
-
-    // Respawn timer
-    if (currentState?.phase === 'active' && respawnEndTime > 0) {
-      const remaining = (respawnEndTime - Date.now()) / 1000;
-      if (remaining > 0) {
-        showRespawnTimer(remaining);
-      } else {
-        hideRespawnTimer();
-        respawnEndTime = 0;
-      }
-    }
-
-    // Update game scene
-    gameScene.update(currentState, dt);
-
-    // Objective arrow
     if (currentState?.phase === 'active') {
-      const localPlayer = currentState.players?.get(connection.sessionId);
-      if (localPlayer && localPlayer.alive) {
-        const punchX = currentState.punch?.x ?? PUNCH_X;
-        const punchY = currentState.punch?.y ?? PUNCH_Y;
-        const punchIsKidnapped = currentState.punch ? !currentState.punch.isHome : false;
-        gameScene.hud.updateObjectiveArrow(
-          myTeam,
-          localPlayer.x,
-          localPlayer.y,
-          punchX,
-          punchY,
-          punchIsKidnapped,
-          localPlayer.isCarryingPunch,
-        );
+      // Check proximity for touch UI helpers
+      if (useMobile && currentState.players && currentState.bodies) {
+        const local = currentState.players.get(connection.sessionId);
+        if (local) {
+          let nearBody = false;
+          currentState.bodies.forEach((body: any) => {
+            const d = Math.sqrt((local.x - body.x) ** 2 + (local.y - body.y) ** 2);
+            if (d < 100) nearBody = true;
+          });
+          touch.setReportVisible(nearBody);
+
+          if (myRole === 'impostor' && local.killCooldownEnd) {
+            touch.setKillOnCooldown(Date.now() < local.killCooldownEnd);
+          }
+        }
+      }
+
+      const hasInput = dx !== 0 || dy !== 0 || usePressed || killPressed || reportPressed;
+      if (hasInput || true) { // always send to keep server in sync
+        connection.sendInput({
+          dx, dy,
+          use: usePressed,
+          kill: killPressed,
+          report: reportPressed,
+          vote: '',
+          seq: ++inputSeq,
+        });
       }
     }
+
+    // Keep track of local ghost/role state
+    if (currentState?.players) {
+      const local = currentState.players.get(connection.sessionId);
+      if (local) {
+        if (local.role !== myRole || local.isGhost !== myIsGhost) {
+          myRole = local.role;
+          myIsGhost = local.isGhost;
+          gameScene.setLocalRole(myRole, myIsGhost);
+        }
+      }
+    }
+
+    // Update task list checkmarks
+    if (currentState?.phase === 'active' && myRole === 'crewmate') {
+      const local = currentState.players?.get(connection.sessionId);
+      if (local && local.tasksDone !== prevTasksDone) {
+        prevTasksDone = local.tasksDone;
+        updateTaskCheckmarks(myTasks, currentState.tasks);
+      }
+    }
+
+    gameScene.update(currentState, app.ticker.deltaTime / 60);
   });
 }
 
+// ── Meeting UI helpers ─────────────────────────────────────────────────────────
+
+function showRoleReveal(role: string) {
+  const overlay = document.getElementById('role-reveal-overlay')!;
+  const text = document.getElementById('role-reveal-text')!;
+  if (role === 'impostor') {
+    text.textContent = 'YOU ARE THE IMPOSTOR';
+    text.style.color = '#ff4444';
+    overlay.style.borderColor = '#ff4444';
+  } else {
+    text.textContent = 'YOU ARE A CREWMATE';
+    text.style.color = '#44ff88';
+    overlay.style.borderColor = '#44ff88';
+  }
+  overlay.style.display = 'flex';
+  setTimeout(() => { overlay.style.display = 'none'; }, 4000);
+}
+
+function showMeetingDiscussion(data: { reporterName: string; bodyName: string }) {
+  const overlay = document.getElementById('meeting-overlay')!;
+  overlay.style.display = 'flex';
+
+  const title = document.getElementById('meeting-title')!;
+  title.textContent = data.bodyName === 'Emergency Button'
+    ? `${data.reporterName} called a meeting!`
+    : `${data.reporterName} reported ${data.bodyName}'s body!`;
+
+  // Show discussion panel, hide others
+  (document.getElementById('meeting-discussion') as HTMLElement).style.display = 'flex';
+  (document.getElementById('meeting-voting') as HTMLElement).style.display = 'none';
+  (document.getElementById('meeting-result') as HTMLElement).style.display = 'none';
+
+  // Clear chat
+  const chat = document.getElementById('meeting-chat')!;
+  chat.innerHTML = '';
+
+  // Populate quick phrase buttons
+  const phrasesEl = document.getElementById('quick-phrases')!;
+  phrasesEl.innerHTML = '';
+  for (const phrase of QUICK_PHRASES) {
+    const btn = document.createElement('button');
+    btn.className = 'phrase-btn';
+    btn.textContent = phrase;
+    btn.addEventListener('click', () => {
+      (window as any)._connection?.sendQuickPhrase(phrase);
+    });
+    phrasesEl.appendChild(btn);
+  }
+
+  // Hide task list panel during meeting
+  const taskPanel = document.getElementById('task-list-panel');
+  if (taskPanel) taskPanel.style.display = 'none';
+}
+
+function showMeetingVoting(state: any) {
+  (document.getElementById('meeting-discussion') as HTMLElement).style.display = 'none';
+  (document.getElementById('meeting-voting') as HTMLElement).style.display = 'flex';
+  (document.getElementById('meeting-result') as HTMLElement).style.display = 'none';
+
+  // Build player list
+  const list = document.getElementById('voting-player-list')!;
+  list.innerHTML = '';
+  if (!state?.players) return;
+
+  state.players.forEach((p: any, id: string) => {
+    if (p.isGhost) return;
+    const btn = document.createElement('button');
+    btn.className = 'vote-btn';
+    btn.textContent = p.name;
+    btn.dataset.id = id;
+    btn.addEventListener('click', () => {
+      (window as any)._connection?.sendVote(id);
+      list.querySelectorAll('.vote-btn').forEach((b) => (b as HTMLElement).style.opacity = '0.5');
+      btn.style.opacity = '1';
+      btn.style.borderColor = '#ffcc00';
+    });
+    list.appendChild(btn);
+  });
+
+  // Skip button
+  const skip = document.createElement('button');
+  skip.className = 'vote-btn vote-skip';
+  skip.textContent = 'Skip Vote';
+  skip.addEventListener('click', () => {
+    (window as any)._connection?.sendVote('skip');
+  });
+  list.appendChild(skip);
+}
+
+function showVoteResult(data: { ejectedName: string; wasImpostor: boolean; ejectedRole: string }) {
+  (document.getElementById('meeting-discussion') as HTMLElement).style.display = 'none';
+  (document.getElementById('meeting-voting') as HTMLElement).style.display = 'none';
+  const resultEl = document.getElementById('meeting-result') as HTMLElement;
+  resultEl.style.display = 'flex';
+
+  const text = document.getElementById('meeting-result-text')!;
+  if (!data.ejectedName) {
+    text.textContent = 'No one was ejected. (Tie)';
+    text.style.color = '#aaaaaa';
+  } else {
+    const wasimp = data.wasImpostor;
+    text.innerHTML = `<strong>${data.ejectedName}</strong> was ejected.<br>${wasimp ? 'They were The Impostor!' : 'They were a Crewmate.'}`;
+    text.style.color = wasimp ? '#ff4444' : '#aaaaaa';
+  }
+}
+
+function hideMeetingOverlay() {
+  const overlay = document.getElementById('meeting-overlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+function appendPhraseToChat(name: string, phrase: string) {
+  const chat = document.getElementById('meeting-chat');
+  if (!chat) return;
+  const row = document.createElement('div');
+  row.className = 'chat-row';
+  row.innerHTML = `<span class="chat-name">${name}:</span> ${phrase}`;
+  chat.appendChild(row);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function populateTaskList(tasks: Array<{ id: string; name: string; room: string }>) {
+  const list = document.getElementById('task-list-items');
+  if (!list) return;
+  list.innerHTML = '';
+  for (const t of tasks) {
+    const item = document.createElement('div');
+    item.className = 'task-item';
+    item.id = `task-${t.id}`;
+    item.innerHTML = `<span class="task-check">○</span> ${t.name} <span class="task-room">${t.room}</span>`;
+    list.appendChild(item);
+  }
+}
+
+function showVentMenu(currentVentId: number, connections: Array<{ id: number; x: number; y: number }>) {
+  // Build a simple DOM popup for vent selection
+  let popup = document.getElementById('vent-popup');
+  if (!popup) {
+    popup = document.createElement('div');
+    popup.id = 'vent-popup';
+    popup.style.cssText = `
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      background: rgba(10,14,23,0.97); border: 2px solid #444; border-radius: 12px;
+      padding: 16px; z-index: 200; color: #fff; min-width: 180px;
+    `;
+    document.body.appendChild(popup);
+  }
+  popup.innerHTML = `<div style="font-weight:bold;margin-bottom:8px;">Travel via vent:</div>`;
+  for (const conn of connections) {
+    const btn = document.createElement('button');
+    btn.style.cssText = `display:block;width:100%;margin:4px 0;padding:8px;border-radius:6px;
+      background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);color:#fff;cursor:pointer;`;
+    btn.textContent = `Vent #${conn.id}`;
+    btn.addEventListener('click', () => {
+      (window as any)._connection?.sendVentTravel(conn.id);
+      popup!.style.display = 'none';
+    });
+    popup.appendChild(btn);
+  }
+  const closeBtn = document.createElement('button');
+  closeBtn.style.cssText = `display:block;width:100%;margin-top:8px;padding:6px;border-radius:6px;
+    background:rgba(255,80,80,0.15);border:1px solid rgba(255,80,80,0.4);color:#ff8888;cursor:pointer;`;
+  closeBtn.textContent = 'Stay here';
+  closeBtn.addEventListener('click', () => { popup!.style.display = 'none'; });
+  popup.appendChild(closeBtn);
+  popup.style.display = 'block';
+}
+
 main().catch(console.error);
+
+function updateTaskCheckmarks(
+  tasks: Array<{ id: string; name: string; room: string }>,
+  stateTasks: any,
+) {
+  for (const task of tasks) {
+    const el = document.getElementById(`task-${task.id}`);
+    if (!el) continue;
+    const serverTask = stateTasks?.get(task.id);
+    const done = serverTask?.done ?? false;
+    el.classList.toggle('done', done);
+    const checkEl = el.querySelector('.task-check');
+    if (checkEl) checkEl.textContent = done ? '✓' : '○';
+  }
+}

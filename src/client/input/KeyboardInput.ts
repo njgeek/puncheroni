@@ -1,7 +1,8 @@
 export class KeyboardInput {
   private keys = new Set<string>();
-  private _attackPressed = false;
-  private _dashPressed = false;
+  private _usePressed = false;
+  private _killPressed = false;
+  private _reportPressed = false;
   private _mouseX = 0;
   private _mouseY = 0;
   private canvas: HTMLCanvasElement;
@@ -11,20 +12,24 @@ export class KeyboardInput {
 
     window.addEventListener('keydown', (e) => {
       this.keys.add(e.key.toLowerCase());
-      if (e.key === ' ' || e.key === 'Shift') {
-        this._dashPressed = true;
+      if (e.key.toLowerCase() === 'e') {
+        this._usePressed = true;
         e.preventDefault();
       }
+      if (e.key.toLowerCase() === 'q') {
+        this._killPressed = true;
+        e.preventDefault();
+      }
+      if (e.key.toLowerCase() === 'r') {
+        this._reportPressed = true;
+        e.preventDefault();
+      }
+      // Prevent space scroll
+      if (e.key === ' ') e.preventDefault();
     });
 
     window.addEventListener('keyup', (e) => {
       this.keys.delete(e.key.toLowerCase());
-    });
-
-    canvas.addEventListener('mousedown', (e) => {
-      this._attackPressed = true;
-      this._mouseX = e.clientX;
-      this._mouseY = e.clientY;
     });
 
     canvas.addEventListener('mousemove', (e) => {
@@ -32,7 +37,6 @@ export class KeyboardInput {
       this._mouseY = e.clientY;
     });
 
-    // Prevent context menu
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
   }
 
@@ -53,15 +57,24 @@ export class KeyboardInput {
   get mouseX() { return this._mouseX; }
   get mouseY() { return this._mouseY; }
 
-  consumeAttack(): boolean {
-    const v = this._attackPressed;
-    this._attackPressed = false;
+  /** E key — interact with task / vent */
+  consumeUse(): boolean {
+    const v = this._usePressed;
+    this._usePressed = false;
     return v;
   }
 
-  consumeDash(): boolean {
-    const v = this._dashPressed;
-    this._dashPressed = false;
+  /** Q key — impostor kill */
+  consumeKill(): boolean {
+    const v = this._killPressed;
+    this._killPressed = false;
+    return v;
+  }
+
+  /** R key — report body */
+  consumeReport(): boolean {
+    const v = this._reportPressed;
+    this._reportPressed = false;
     return v;
   }
 }

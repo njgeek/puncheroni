@@ -10,25 +10,29 @@ export class Scoreboard {
   }
 
   show(data: {
-    winningTeam: string | null;
-    mvpName: string;
-    mvpDamage: number;
-    defenderKills: number;
-    attackerKills: number;
-    punchHpRemaining: number;
-    roundDuration: number;
+    winner?: string;
+    reason?: string;
+    tasksDone?: number;
+    tasksTotal?: number;
+    // legacy compat fields
+    winningTeam?: string;
+    defenderKills?: number;
+    attackerKills?: number;
   }) {
-    const isDefWin = data.winningTeam === 'defender';
-    this.title.textContent = isDefWin
-      ? 'PUNCH IS SAFE!'
-      : 'PUNCH WAS KIDNAPPED!';
-    this.title.style.color = isDefWin ? '#4a9eff' : '#ff4a4a';
+    const winner = data.winner ?? (data.winningTeam === 'defender' ? 'crewmate' : 'impostor');
+    const isCrewWin = winner === 'crewmate';
+
+    this.title.textContent = isCrewWin ? 'CREWMATES WIN!' : 'IMPOSTORS WIN!';
+    this.title.style.color = isCrewWin ? '#44ff88' : '#ff4444';
+
+    const reason = data.reason ?? '';
+    const tasksDone = data.tasksDone ?? data.defenderKills ?? 0;
+    const tasksTotal = data.tasksTotal ?? data.attackerKills ?? 0;
 
     this.stats.innerHTML = `
-      ${isDefWin ? "Punch's Friends protected him!" : "Punch's Foes kidnapped him!"}<br><br>
-      <strong>MVP:</strong> ${data.mvpName} (${Math.round(data.mvpDamage)} dmg)<br>
-      <strong>Time:</strong> ${Math.round(data.roundDuration)}s<br>
-      <strong>Kills:</strong> Friends ${data.defenderKills} — Foes ${data.attackerKills}
+      ${isCrewWin ? 'The crew worked together and survived!' : 'The impostors took over the ship!'}<br><br>
+      ${reason ? `<strong>Reason:</strong> ${reason}<br>` : ''}
+      ${tasksTotal > 0 ? `<strong>Tasks completed:</strong> ${tasksDone}/${tasksTotal}` : ''}
     `;
 
     this.overlay.classList.remove('hidden');
