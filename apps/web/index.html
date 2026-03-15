@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#0a1628" />
+  <title>Puncheroni</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <canvas id="game-canvas"></canvas>
+
+  <div id="hud">
+    <div id="hud-top">
+      <div id="hud-left">
+        <div id="connection-status">Connecting...</div>
+        <div id="role-badge">
+          <span id="role-label">Role</span>: <span id="role-value">Pending</span>
+        </div>
+      </div>
+      <div id="hud-center">
+        <div id="phase-badge">
+          <span id="phase-value">Social</span>
+        </div>
+        <div id="timer-value">60s</div>
+      </div>
+      <div id="hud-right">
+        <div id="punch-status">
+          <span id="punch-mood-icon">🐵</span>
+          <span id="punch-stress-label">Stress</span>:
+          <span id="punch-stress-value">18</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="hud-bottom">
+      <div id="objective-bar">
+        <span id="objective-text">Protect Puncheroni!</span>
+        <div id="extraction-bar">
+          <div id="extraction-fill"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="touch-controls">
+    <div id="dpad">
+      <button data-dir="up" aria-label="Move forward">&#9650;</button>
+      <div id="dpad-middle">
+        <button data-dir="left" aria-label="Move left">&#9664;</button>
+        <button data-dir="right" aria-label="Move right">&#9654;</button>
+      </div>
+      <button data-dir="down" aria-label="Move backward">&#9660;</button>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

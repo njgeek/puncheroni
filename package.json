@@ -1,0 +1,28 @@
+{
+  "name": "puncheroni",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "postinstall": "npm run build:shared",
+    "dev": "npm run build:shared && concurrently -n shared,web,server -c magenta,blue,green \"npm:dev:shared\" \"npm:dev:web\" \"npm:dev:server\"",
+    "dev:shared": "npm run dev --workspace @puncheroni/shared",
+    "dev:web": "npm run dev --workspace @puncheroni/web",
+    "dev:server": "npm run dev --workspace @puncheroni/server",
+    "build": "npm run build:shared && npm run build:web && npm run build:server",
+    "build:shared": "npm run build --workspace @puncheroni/shared",
+    "build:web": "npm run build --workspace @puncheroni/web",
+    "build:server": "npm run build --workspace @puncheroni/server",
+    "typecheck": "npm run build:shared && npm run typecheck:shared && npm run typecheck:web && npm run typecheck:server",
+    "typecheck:shared": "npm run typecheck --workspace @puncheroni/shared",
+    "typecheck:web": "npm run typecheck --workspace @puncheroni/web",
+    "typecheck:server": "npm run typecheck --workspace @puncheroni/server"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "typescript": "^5.9.3"
+  }
+}
